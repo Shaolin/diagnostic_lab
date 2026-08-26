@@ -480,29 +480,49 @@
 
 
                         {{-- Actions --}}
-                        <td class="whitespace-nowrap px-6 py-4 text-center">
+<td class="whitespace-nowrap px-6 py-4 text-center">
 
-                            <div class="flex items-center justify-center gap-2">
+    <div class="flex items-center justify-center gap-2">
 
-                                {{-- View --}}
-                                <a
-                                    href="{{ route('test-requests.show', $testRequest) }}"
-                                    class="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-700"
-                                >
-                                    View
-                                </a>
+        {{-- View --}}
+        <a
+            href="{{ route('test-requests.show', $testRequest) }}"
+            class="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-700"
+        >
+            View
+        </a>
 
-                                {{-- Edit --}}
-                                <a
-                                    href="{{ route('test-requests.edit', $testRequest) }}"
-                                    class="rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-600"
-                                >
-                                    Edit
-                                </a>
+        {{-- Edit --}}
+        <a
+            href="{{ route('test-requests.edit', $testRequest) }}"
+            class="rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-600"
+        >
+            Edit
+        </a>
 
-                            </div>
+        {{-- Payment --}}
+        @if(!$testRequest->isPaid())
 
-                        </td>
+            <a
+                href="{{ route('payments.create', $testRequest) }}"
+                class="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700"
+            >
+                Payment
+            </a>
+
+        @else
+
+            <span
+                class="rounded-lg bg-green-900/30 px-3 py-2 text-xs font-semibold text-green-400 ring-1 ring-green-700"
+            >
+                Paid
+            </span>
+
+        @endif
+
+    </div>
+
+</td>
 
                     </tr>
 

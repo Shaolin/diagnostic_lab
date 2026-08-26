@@ -101,11 +101,18 @@ class TestRequestController extends Controller
             403
         );
 
-        $testRequest->load([
-            'patient',
-            'requestedBy',
-            'items.testType',
-        ]);
+        // $testRequest->load([
+        //     'patient',
+        //     'requestedBy',
+        //     'items.testType',
+        // ]);
+          $testRequest->load([
+    'patient',
+    'requestedBy',
+    'items.testType',
+    'items.result.uploadedBy',
+    'items.result.verifiedBy',
+]);
 
         return view('test-requests.show', compact('testRequest'));
     }

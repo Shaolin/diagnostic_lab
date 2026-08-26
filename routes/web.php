@@ -1,27 +1,54 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LaboratoryController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\PatientTrackingController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ResultController;
 use App\Http\Controllers\TestRequestController;
 use App\Http\Controllers\TestRequestItemController;
 use App\Http\Controllers\TestTypeController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
+// Route::get('/', function () {
+//     return view('welcome');
+// });
+
 Route::get('/', function () {
     return view('welcome');
-});
+})->name('home');
+
+Route::get('/track-result', [PatientTrackingController::class, 'index'])
+    ->name('patient.track');
+
+Route::get('/track-result/search', [PatientTrackingController::class, 'search'])
+    ->name('patient.track.search');
+
+Route::get('/track-result/{trackingCode}/result/{result}/download',
+    [PatientTrackingController::class, 'download'])
+    ->name('patient.result.download');
+
+ Route::get(
+    '/track-result/{trackingCode}/result/{result}/view',
+    [PatientTrackingController::class, 'view']
+)->name('patient.result.view');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('dashboard');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+
+
+
 
 Route::middleware('auth')->group(function () {
 
@@ -86,4 +113,73 @@ Route::prefix('test-request-items')->name('test-request-items.')->group(function
     Route::patch('{testRequestItem}/result-sent', [TestRequestItemController::class, 'markResultSent'])
         ->name('result-sent');
 });
+
+// Results
+
+Route::prefix('results')->name('results.')->group(function () {
+
+// Results listing
+Route::get(
+    '/',
+    [ResultController::class, 'index']
+)->name('index');
+
+    // Upload result
+    Route::get(
+        'test-request-items/{testRequestItem}/create',
+        [ResultController::class, 'create']
+    )->name('create');
+
+    Route::post(
+        'test-request-items/{testRequestItem}',
+        [ResultController::class, 'store']
+    )->name('store');
+
+    // Download result
+    Route::get(
+        '{result}/download',
+        [ResultController::class, 'download']
+    )->name('download');
+
+    // Verify result
+    Route::patch(
+        '{result}/verify',
+        [ResultController::class, 'verify']
+    )->name('verify');
+
+    // Replace result
+    Route::get(
+        '{result}/edit',
+        [ResultController::class, 'edit']
+    )->name('edit');
+
+    Route::put(
+        '{result}',
+        [ResultController::class, 'update']
+    )->name('update');
+});
+
+
+Route::middleware(['auth'])
+    ->prefix('payments')
+    ->name('payments.')
+    ->group(function () {
+
+        Route::get('/', [PaymentController::class, 'index'])
+            ->name('index');
+
+        Route::get('/create/{testRequest}', [PaymentController::class, 'create'])
+            ->name('create');
+
+        Route::post('/{testRequest}', [PaymentController::class, 'store'])
+            ->name('store');
+
+        Route::get('/{payment}', [PaymentController::class, 'show'])
+            ->name('show');
+    });
+
+    Route::get('/reports', [ReportController::class, 'index'])
+    ->name('reports.index');
+
+    
 require __DIR__.'/auth.php';

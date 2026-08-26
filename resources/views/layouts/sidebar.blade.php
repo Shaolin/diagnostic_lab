@@ -102,26 +102,43 @@
 
 </a>
 
+{{-- Results --}}
+<a href="{{ route('results.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('results.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📄</span>
+    Results
+
+</a>
+
+{{-- Payments --}}
+<a href="{{ route('payments.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>💳</span>
+    Payments
+
+</a>
+
+{{-- Reports --}}
+<a href="{{ route('reports.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('reports.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📊</span>
+    Reports
+
+</a>
+
     <!-- Future Modules -->
 
 
 
    
 
-    <div class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-500">
-        <span>📄</span>
-        Results
-    </div>
 
-    <div class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-500">
-        <span>💳</span>
-        Payments
-    </div>
-
-    <div class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-500">
-        <span>📊</span>
-        Reports
-    </div>
 
     <div class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-500">
         <span>⚙️</span>

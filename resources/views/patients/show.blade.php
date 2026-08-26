@@ -452,13 +452,14 @@
     </div>
 
 </div>
+
 {{-- Test Requests --}}
 <div class="overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
 
-    <div class="flex items-center justify-between border-b border-slate-700 px-6 py-4">
+    {{-- Section Header --}}
+    <div class="flex flex-col gap-4 border-b border-slate-700 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
 
         <div>
-
             <h3 class="text-lg font-semibold text-white">
                 Test Requests
             </h3>
@@ -466,53 +467,199 @@
             <p class="mt-1 text-sm text-slate-400">
                 Laboratory tests requested for this patient.
             </p>
-
         </div>
 
-        <button
-            disabled
-            class="cursor-not-allowed rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-400"
-        >
-            + New Test Request
-        </button>
+        <div class="rounded-lg bg-slate-900 px-4 py-2 text-sm text-slate-300">
+            <span class="font-semibold text-white">
+                {{ $patient->testRequests->count() }}
+            </span>
+            {{ Str::plural('Request', $patient->testRequests->count()) }}
+        </div>
 
     </div>
 
-    <div class="p-12 text-center">
 
-        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-900">
+    {{-- Requests --}}
+    @if ($patient->testRequests->isNotEmpty())
 
-            <svg
-                class="h-8 w-8 text-slate-500"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M19.428 15.428a4 4 0 00-5.656-5.656L6 17.544V20h2.456l7.772-7.772zM16 8l2 2"
-                />
-            </svg>
+        <div class="divide-y divide-slate-700">
+
+            @foreach ($patient->testRequests as $request)
+
+                <div class="p-6 transition hover:bg-slate-750">
+
+                    <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+                        {{-- Request Information --}}
+                        <div class="min-w-0 flex-1">
+
+                            <div class="flex flex-wrap items-center gap-3">
+
+                                {{-- Tracking Code --}}
+                                <span class="inline-flex rounded-lg bg-indigo-600/20 px-3 py-1.5 text-sm font-bold tracking-wide text-indigo-300 ring-1 ring-indigo-500/30">
+                                    {{ $request->tracking_code }}
+                                </span>
+
+                                {{-- Status --}}
+                                @php
+                                    $statusClasses = match ($request->overall_status) {
+                                        \App\Models\TestRequest::STATUS_PENDING =>
+                                            'bg-yellow-900/30 text-yellow-400 ring-yellow-500/20',
+
+                                        \App\Models\TestRequest::STATUS_IN_PROGRESS =>
+                                            'bg-blue-900/30 text-blue-400 ring-blue-500/20',
+
+                                        \App\Models\TestRequest::STATUS_PARTIALLY_COMPLETED =>
+                                            'bg-orange-900/30 text-orange-400 ring-orange-500/20',
+
+                                        \App\Models\TestRequest::STATUS_COMPLETED =>
+                                            'bg-green-900/30 text-green-400 ring-green-500/20',
+
+                                        default =>
+                                            'bg-slate-700 text-slate-300 ring-slate-600/30',
+                                    };
+                                @endphp
+
+                                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $statusClasses }}">
+                                    {{ $request->overall_status }}
+                                </span>
+
+                            </div>
+
+
+                            {{-- Date --}}
+                            <p class="mt-3 text-sm text-slate-400">
+                                Requested on
+                                <span class="font-medium text-slate-300">
+                                    {{ $request->created_at->format('d F, Y') }}
+                                </span>
+
+                                <span class="mx-1 text-slate-600">•</span>
+
+                                {{ $request->created_at->format('h:i A') }}
+                            </p>
+
+
+                            {{-- Tests --}}
+                            <div class="mt-4">
+
+                                <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Tests Requested
+                                </p>
+
+                                <div class="flex flex-wrap gap-2">
+
+                                    @forelse ($request->items as $item)
+
+                                        <span class="inline-flex rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-slate-300">
+                                            {{ $item->test_name }}
+                                        </span>
+
+                                    @empty
+
+                                        <span class="text-sm italic text-slate-500">
+                                            No test items recorded.
+                                        </span>
+
+                                    @endforelse
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        {{-- Amount + Action --}}
+                        <div class="flex flex-col gap-4 border-t border-slate-700 pt-5 sm:flex-row sm:items-center lg:border-t-0 lg:pt-0">
+
+                            {{-- Amount --}}
+                            <div class="lg:min-w-[140px] lg:text-right">
+
+                                <p class="text-xs uppercase tracking-wider text-slate-500">
+                                    Total Amount
+                                </p>
+
+                                <p class="mt-1 text-lg font-semibold text-white">
+                                    ₦{{ number_format((float) $request->total_amount, 2) }}
+                                </p>
+
+                            </div>
+
+
+                            {{-- View Button --}}
+                            <div>
+
+                                <a
+                                    href="{{ route('test-requests.show', $request) }}"
+                                    class="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 sm:w-auto"
+                                >
+                                    View Request
+
+                                    <svg
+                                        class="ml-2 h-4 w-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M9 5l7 7-7 7"
+                                        />
+                                    </svg>
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            @endforeach
 
         </div>
 
-        <h4 class="mt-6 text-lg font-semibold text-white">
-            No Test Requests Yet
-        </h4>
+    @else
 
-        <p class="mt-2 text-slate-400">
-            This patient has no laboratory test requests.
-        </p>
+        {{-- Empty State --}}
+        <div class="p-12 text-center">
 
-        <p class="mt-1 text-sm text-slate-500">
-            Test Requests will appear here once that module is implemented.
-        </p>
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-900">
 
-    </div>
+                <svg
+                    class="h-8 w-8 text-slate-500"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                </svg>
+
+            </div>
+
+            <h4 class="mt-6 text-lg font-semibold text-white">
+                No Test Requests Yet
+            </h4>
+
+            <p class="mt-2 text-slate-400">
+                This patient has no laboratory test requests.
+            </p>
+
+        </div>
+
+    @endif
 
 </div>
+
         </div>
 
     </div>

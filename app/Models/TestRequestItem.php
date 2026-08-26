@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 
 
+
 class TestRequestItem extends Model
 {
 
@@ -79,6 +80,8 @@ public const RESULT_SENT = 'Sent';
     {
         return $query->where('status', 'In Progress');
     }
+
+    
 
     /*
     |--------------------------------------------------------------------------

@@ -617,14 +617,81 @@
         @endif
 
 
-        {{-- Completed --}}
-        @if($item->status === \App\Models\TestRequestItem::STATUS_COMPLETED)
+       {{-- Completed / Results --}}
+@if($item->status === \App\Models\TestRequestItem::STATUS_COMPLETED)
+
+    {{-- No result uploaded yet --}}
+    @if(!$item->result)
+
+        <span class="inline-flex items-center rounded-lg bg-green-900/30 px-3 py-2 text-xs font-semibold text-green-400 ring-1 ring-green-700">
+            ✓ Completed
+        </span>
+
+        <a
+            href="{{ route('results.create', $item) }}"
+            class="w-full rounded-lg bg-indigo-600 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-indigo-700"
+        >
+            Upload Result
+        </a>
+
+    @else
+
+        {{-- Result exists --}}
+        @if($item->result->verified_at)
 
             <span class="inline-flex items-center rounded-lg bg-green-900/30 px-3 py-2 text-xs font-semibold text-green-400 ring-1 ring-green-700">
-                ✓ Completed
+                ✓ Result Verified
+            </span>
+
+        @else
+
+            <span class="inline-flex items-center rounded-lg bg-yellow-900/30 px-3 py-2 text-xs font-semibold text-yellow-400 ring-1 ring-yellow-700">
+                Result Awaiting Verification
             </span>
 
         @endif
+
+        {{-- Download Result --}}
+        <a
+            href="{{ route('results.download', $item->result) }}"
+            class="w-full rounded-lg bg-gray-600 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-gray-700"
+        >
+            Download Result
+        </a>
+
+        {{-- Verify Result --}}
+        @if(!$item->result->verified_at)
+
+            <form
+                action="{{ route('results.verify', $item->result) }}"
+                method="POST"
+                class="w-full"
+            >
+                @csrf
+                @method('PATCH')
+
+                <button
+                    type="submit"
+                    class="w-full rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-700"
+                >
+                    Verify Result
+                </button>
+
+            </form>
+
+        @endif
+
+        {{-- Replace Result --}}
+        <a
+            href="{{ route('results.edit', $item->result) }}"
+            class="w-full rounded-lg bg-amber-600 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-amber-700"
+        >
+            Replace Result
+        </a>
+
+    @endif
+
+@endif
 
     </div>
 

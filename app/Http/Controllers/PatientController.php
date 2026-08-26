@@ -72,11 +72,26 @@ class PatientController extends Controller
     /**
      * Display the specified patient.
      */
-    public function show(Patient $patient)
+//     public function show(Patient $patient)
+// {
+//     $this->authorize('view', $patient);
+
+//     $patient->load('creator');
+
+//     return view('patients.show', compact('patient'));
+// }
+
+public function show(Patient $patient)
 {
     $this->authorize('view', $patient);
 
-    $patient->load('creator');
+    $patient->load([
+        'creator',
+        'testRequests' => function ($query) {
+            $query->latest()
+                ->with('items');
+        },
+    ]);
 
     return view('patients.show', compact('patient'));
 }

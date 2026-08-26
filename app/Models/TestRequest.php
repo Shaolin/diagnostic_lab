@@ -11,10 +11,14 @@ class TestRequest extends Model
 {
 
 
-    public const STATUS_PENDING = 'Pending';
+public const STATUS_PENDING = 'Pending';
 public const STATUS_IN_PROGRESS = 'In Progress';
 public const STATUS_PARTIALLY_COMPLETED = 'Partially Completed';
 public const STATUS_COMPLETED = 'Completed';
+
+public const PAYMENT_UNPAID = 'Unpaid';
+public const PAYMENT_PARTIALLY_PAID = 'Partially Paid';
+public const PAYMENT_PAID = 'Paid';
 
     protected $fillable = [
         'laboratory_id',
@@ -61,6 +65,10 @@ public const STATUS_COMPLETED = 'Completed';
     {
         return $this->hasMany(TestRequestItem::class);
     }
+    public function payments(): HasMany
+{
+    return $this->hasMany(Payment::class);
+}
 
     /*
     |--------------------------------------------------------------------------
@@ -103,5 +111,64 @@ public const STATUS_COMPLETED = 'Completed';
     {
         return $this->overall_status === 'In Progress';
     }
+
+    /**
+ * Get the total amount paid for this test request.
+ */
+public function totalPaid(): float
+{
+    return (float) $this->payments()->sum('amount');
+}
+
+/**
+ * Get the outstanding balance for this test request.
+ */
+public function balance(): float
+{
+    return max(0, (float) $this->total_amount - $this->totalPaid());
+}
+
+/**
+ * Get the current payment status.
+ */
+public function paymentStatus(): string
+{
+    $total = (float) $this->total_amount;
+    $paid = $this->totalPaid();
+
+    if ($paid <= 0) {
+        return self::PAYMENT_UNPAID;
+    }
+
+    if ($paid >= $total) {
+        return self::PAYMENT_PAID;
+    }
+
+    return self::PAYMENT_PARTIALLY_PAID;
+}
+
+/**
+ * Determine whether the test request has been fully paid.
+ */
+public function isPaid(): bool
+{
+    return $this->paymentStatus() === self::PAYMENT_PAID;
+}
+
+/**
+ * Determine whether the test request is partially paid.
+ */
+public function isPartiallyPaid(): bool
+{
+    return $this->paymentStatus() === self::PAYMENT_PARTIALLY_PAID;
+}
+
+/**
+ * Determine whether the test request is unpaid.
+ */
+public function isUnpaid(): bool
+{
+    return $this->paymentStatus() === self::PAYMENT_UNPAID;
+}
 
 }
