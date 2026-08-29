@@ -161,15 +161,31 @@
         </main>
 
 
-        {{-- Footer --}}
-        <footer class="bg-slate-900 border-t border-slate-800">
+       {{-- Footer --}}
 
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 text-center text-xs sm:text-sm text-slate-500">
-                &copy; {{ date('Y') }} Diagnostic Laboratory Management System.
-                All rights reserved.
-            </div>
+<footer class="bg-slate-900 border-t border-slate-800">
 
-        </footer>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 text-center text-xs sm:text-sm text-slate-500">
+
+    <p>
+        &copy; {{ date('Y') }} Diagnostic Laboratory Management System.
+        All rights reserved.
+    </p>
+
+    <p class="mt-2">
+        Support:
+        <a href="tel:+237030920009"
+           class="text-slate-400 hover:text-blue-400 transition">
+            +234 703 092 0009
+        </a>
+    </p>
+
+</div>
+
+
+</footer>
+
 
     </div>
 
