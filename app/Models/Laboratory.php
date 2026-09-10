@@ -79,21 +79,7 @@ public function testRequests(): HasMany
     |
     | Planned relationships include:
     |
-    | public function users()
-    | {
-    |     return $this->hasMany(User::class);
-    | }
-    |
-    | public function patients()
-    | {
-    |     return $this->hasMany(Patient::class);
-    | }
-    |
     | 
-    | public function results()
-    | {
-    |     return $this->hasMany(Result::class);
-    | }
     |
     | public function payments()
     | {

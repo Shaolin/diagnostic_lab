@@ -98,7 +98,7 @@
             name="role"
             class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
             required
-        >
+        {{-- >
             <option value="">Select Role</option>
 
             @foreach (\App\Enums\UserRole::cases() as $role)
@@ -110,7 +110,22 @@
                 </option>
             @endforeach
 
-        </select>
+        </select> --}}
+
+        
+<option value="">Select Role</option>
+
+@foreach ($roles as $role)
+    <option
+        value="{{ $role->value }}"
+        @selected(old('role') == $role->value)
+    >
+        {{ $role->label() }}
+    </option>
+@endforeach
+
+</select>
+
     </div>
 
     {{-- Active --}}

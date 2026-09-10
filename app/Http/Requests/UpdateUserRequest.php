@@ -1,22 +1,21 @@
 <?php
-
 namespace App\Http\Requests;
 
 use App\Enums\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Rules\Password;
 
 class UpdateUserRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Determine whether the user is authorized to make this request.
      */
     public function authorize(): bool
-{
-    return true;
-}
+    {
+        return true;
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -41,11 +40,12 @@ class UpdateUserRequest extends FormRequest
                 Rule::unique('users', 'email')->ignore($user),
             ],
 
-           
-
             'role' => [
                 'required',
-                new Enum(UserRole::class),
+                Rule::in([
+                    UserRole::ADMIN->value,
+                    UserRole::STAFF->value,
+                ]),
             ],
 
             'password' => [
@@ -71,3 +71,4 @@ class UpdateUserRequest extends FormRequest
         ]);
     }
 }
+

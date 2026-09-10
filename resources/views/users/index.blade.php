@@ -97,10 +97,11 @@
                     name="role"
                     id="role"
                     class="w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
-                >
+                {{-- >
                     <option value="">All Roles</option>
 
-                    @foreach (\App\Enums\UserRole::cases() as $role)
+                     @foreach (\App\Enums\UserRole::cases() as $role)
+                   
                         <option
                             value="{{ $role->value }}"
                             @selected(request('role') === $role->value)
@@ -108,7 +109,21 @@
                             {{ $role->label() }}
                         </option>
                     @endforeach
-                </select>
+                </select> --}}
+
+                
+<option value="">All Roles</option>
+
+@foreach ($roles as $role)
+    <option
+        value="{{ $role->value }}"
+        @selected(request('role') === $role->value)
+    >
+        {{ $role->label() }}
+    </option>
+@endforeach
+</select>
+
             </div>
 
             <!-- Status -->

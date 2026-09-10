@@ -8,6 +8,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ResultController;
+use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\TestRequestController;
 use App\Http\Controllers\TestRequestItemController;
 use App\Http\Controllers\TestTypeController;
@@ -180,6 +181,21 @@ Route::middleware(['auth'])
 
     Route::get('/reports', [ReportController::class, 'index'])
     ->name('reports.index');
+
+
+
+Route::middleware(['auth', 'super_admin'])
+    ->prefix('super-admin')
+    ->name('super-admin.')
+    ->group(function () {
+
+        Route::get('/', [SuperAdminController::class, 'index'])
+            ->name('dashboard');
+
+    });
+
+
+
 
     
 require __DIR__.'/auth.php';

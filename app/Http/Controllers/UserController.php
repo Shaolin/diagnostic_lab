@@ -51,7 +51,8 @@ public function index(Request $request)
         ->paginate(10)
         ->withQueryString();
 
-    return view('users.index', compact('users'));
+  $roles = auth()->user()->isSuperAdmin() ? UserRole::cases() : [ UserRole::ADMIN, UserRole::STAFF, ]; 
+  return view('users.index', compact('users', 'roles'));
 }
 
     /**
@@ -59,14 +60,21 @@ public function index(Request $request)
      */
   
 
+
+
 public function create()
 {
+    $this->authorize('create', User::class);
 
-$this->authorize('create', User::class);
-    $roles = UserRole::cases();
+    $roles = [
+        UserRole::ADMIN,
+        UserRole::STAFF,
+    ];
 
     return view('users.create', compact('roles'));
 }
+
+
 
     /**
      * Store a newly created resource in storage.
@@ -99,14 +107,22 @@ $this->authorize('create', User::class);
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(User $user)
+
+
+
+public function edit(User $user)
 {
     $this->authorize('update', $user);
 
-    $roles = UserRole::cases();
+    $roles = [
+        UserRole::ADMIN,
+        UserRole::STAFF,
+    ];
 
     return view('users.edit', compact('user', 'roles'));
 }
+
+
 
     /**
      * Update the specified resource in storage.

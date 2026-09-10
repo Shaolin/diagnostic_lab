@@ -103,7 +103,7 @@
         >
             <option value="">Select Role</option>
 
-            @foreach (\App\Enums\UserRole::cases() as $role)
+            @foreach ($roles as $role)
                 <option
                     value="{{ $role->value }}"
                     @selected(old('role', $user->role->value) == $role->value)
