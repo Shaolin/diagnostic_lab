@@ -181,6 +181,9 @@
                 @endif
 
             </table>
+            <div class="mt-6">
+    {{ $accounts->links() }}
+</div>
         </div>
 
     </div>

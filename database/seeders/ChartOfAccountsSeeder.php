@@ -33,6 +33,7 @@ class ChartOfAccountsSeeder extends Seeder
             );
 
             $this->createAccount($laboratory->id, $assets->id, '1100', 'Cash', 'asset', 110);
+            $this->createAccount($laboratory->id, $assets->id, '1150', 'Petty Cash', 'asset', 115);
             $this->createAccount($laboratory->id, $assets->id, '1200', 'Bank', 'asset', 120);
             $this->createAccount($laboratory->id, $assets->id, '1300', 'Accounts Receivable', 'asset', 130);
             $this->createAccount($laboratory->id, $assets->id, '1400', 'Inventory', 'asset', 140);

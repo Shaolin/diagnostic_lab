@@ -51,8 +51,8 @@ class GeneralLedgerService
                 '=',
                 'journal_entries.id'
             )
-            ->orderBy('journal_entries.entry_date')
-            ->orderBy('journal_entries.id')
+         ->orderByDesc('journal_entries.entry_date')
+->orderByDesc('journal_entries.id')
             ->select('journal_entry_lines.*');
     }
 }

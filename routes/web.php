@@ -1,9 +1,12 @@
 <?php
 
+use App\Http\Controllers\Accounting\PettyCashFundController;
+use App\Http\Controllers\Accounting\PettyCashTransactionController;
 use App\Http\Controllers\AccountsPayableController;
 use App\Http\Controllers\AccountsReceivableController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\GeneralLedgerController;
 use App\Http\Controllers\LaboratoryController;
 use App\Http\Controllers\PatientController;
@@ -236,6 +239,37 @@ Route::get('/accounting/accounts-payable/{supplierInvoice}', [SupplierInvoiceCon
 
 Route::get('/accounting/trial-balance', [TrialBalanceController::class, 'index'])
     ->name('accounting.trial-balance');
+
+
+
+Route::get('/accounting/expenses', [ExpenseController::class, 'index'])
+    ->name('accounting.expenses');
+
+Route::get('/accounting/expenses/create', [ExpenseController::class, 'create'])
+    ->name('accounting.expenses.create');
+
+Route::post('/accounting/expenses', [ExpenseController::class, 'store'])
+    ->name('accounting.expenses.store');
+Route::prefix('accounting/petty-cash')
+    ->name('accounting.petty-cash.')
+    ->group(function () {
+        Route::get('/funds', [PettyCashFundController::class, 'index'])
+            ->name('funds.index');
+
+        Route::get('/funds/create', [PettyCashFundController::class, 'create'])
+            ->name('funds.create');
+
+        Route::post('/funds', [PettyCashFundController::class, 'store'])
+            ->name('funds.store');
+            Route::get('/funds/{pettyCashFund}/transactions', [PettyCashTransactionController::class, 'index'])
+    ->name('transactions.index');
+
+Route::get('/funds/{pettyCashFund}/transactions/create', [PettyCashTransactionController::class, 'create'])
+    ->name('transactions.create');
+
+Route::post('/funds/{pettyCashFund}/transactions', [PettyCashTransactionController::class, 'store'])
+    ->name('transactions.store');
+    });
 
 
 

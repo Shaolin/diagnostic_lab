@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ChartOfAccount;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class TrialBalanceController extends Controller
 {
@@ -21,8 +22,13 @@ class TrialBalanceController extends Controller
             ->get();
 
         $accounts->each(function ($account) use ($laboratoryId, $from, $to) {
+
             $account->debit_total = $account->journalEntryLines()
-                ->whereHas('journalEntry', function ($query) use ($laboratoryId, $from, $to) {
+                ->whereHas('journalEntry', function ($query) use (
+                    $laboratoryId,
+                    $from,
+                    $to
+                ) {
                     $query->where('laboratory_id', $laboratoryId)
                         ->where('status', 'posted');
 
@@ -37,7 +43,11 @@ class TrialBalanceController extends Controller
                 ->sum('debit');
 
             $account->credit_total = $account->journalEntryLines()
-                ->whereHas('journalEntry', function ($query) use ($laboratoryId, $from, $to) {
+                ->whereHas('journalEntry', function ($query) use (
+                    $laboratoryId,
+                    $from,
+                    $to
+                ) {
                     $query->where('laboratory_id', $laboratoryId)
                         ->where('status', 'posted');
 
@@ -52,13 +62,35 @@ class TrialBalanceController extends Controller
                 ->sum('credit');
         });
 
+        // Remove accounts with no transactions
         $accounts = $accounts->filter(function ($account) {
             return $account->debit_total > 0
                 || $account->credit_total > 0;
         });
 
+        // Overall totals BEFORE pagination
         $totalDebit = $accounts->sum('debit_total');
         $totalCredit = $accounts->sum('credit_total');
+
+        // Pagination
+        $perPage = 20;
+
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+
+        $currentItems = $accounts
+            ->slice(($currentPage - 1) * $perPage, $perPage)
+            ->values();
+
+        $accounts = new LengthAwarePaginator(
+            $currentItems,
+            $accounts->count(),
+            $perPage,
+            $currentPage,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
         return view('accounting.trial-balance.index', compact(
             'accounts',

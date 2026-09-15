@@ -32,178 +32,254 @@
     </div>
 
     
-    <!-- Navigation -->
+  
+<!-- Navigation -->
 <nav class="mt-6 space-y-2 px-4">
 
     {{-- Dashboard --}}
     <a href="{{ route('dashboard') }}"
        class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
        {{ request()->routeIs('dashboard') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-
         <span>🏠</span>
         Dashboard
-
     </a>
 
-    {{-- Laboratories (Admins Only) --}}
-   @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
 
-<a href="{{ route('laboratories.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('laboratories.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>🏥</span>
-    Laboratories
-
-</a>
-
-@endif
-
+    {{-- Laboratory Management --}}
     @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
 
-<a href="{{ route('users.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('users.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+        @php
+            $managementOpen = request()->routeIs('laboratories.*')
+                || request()->routeIs('users.*')
+                || request()->routeIs('branches.*');
+        @endphp
 
-    <span>👤</span>
-    Users
+        <div x-data="{ open: {{ $managementOpen ? 'true' : 'false' }} }">
 
-</a>
+            <button
+                type="button"
+                @click="open = !open"
+                class="flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition
+                {{ $managementOpen ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}"
+            >
+                <span class="flex items-center gap-3">
+                    <span>🏥</span>
+                    Laboratory Management
+                </span>
 
-@endif
+                <span class="text-xs transition-transform"
+                      :class="{ 'rotate-180': open }">
+                    ▼
+                </span>
+            </button>
 
-{{-- Branches (Admins Only) --}}
-@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+            <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
 
-<a href="{{ route('branches.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('branches.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+                {{-- Laboratories --}}
+                <a href="{{ route('laboratories.index') }}"
+                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+                   {{ request()->routeIs('laboratories.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <span>🏥</span>
+                    Laboratories
+                </a>
 
-    <span>🏢</span>
-    Branches
+                {{-- Users --}}
+                <a href="{{ route('users.index') }}"
+                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+                   {{ request()->routeIs('users.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <span>👤</span>
+                    Users
+                </a>
 
-</a>
+                {{-- Branches --}}
+                <a href="{{ route('branches.index') }}"
+                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+                   {{ request()->routeIs('branches.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <span>🏢</span>
+                    Branches
+                </a>
 
-@endif
+            </div>
+        </div>
 
-{{-- Patients --}}
-<a href="{{ route('patients.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('patients.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>🩺</span>
-    Patients
-
-</a>
-
-{{-- Test Types --}}
-<a href="{{ route('test-types.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('test-types.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>🧪</span>
-    Test Types
-
-</a>
-
-{{-- Test Requests --}}
-<a href="{{ route('test-requests.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('test-requests.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>🧾</span>
-    Test Requests
-
-</a>
-
-{{-- Results --}}
-<a href="{{ route('results.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('results.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>📄</span>
-    Results
-
-</a>
-
-{{-- Payments --}}
-<a href="{{ route('payments.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>💳</span>
-    Payments
-
-</a>
-
-{{-- Account Ledger (Admins Only) --}}
-@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
-
-<a href="{{ route('accounting.general-ledger') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('accounting.general-ledger') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>📒</span>
-    Account Ledger
-
-</a>
-
-@endif
+    @endif
 
 
-{{-- Accounts Receivable (Admins Only) --}}
-@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
-<a href="{{ route('accounting.accounts-receivable') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('accounting.accounts-receivable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-    <span>💰</span>
-    Accounts Receivable
-</a>
-@endif
+    {{-- Laboratory Operations --}}
+    @php
+        $operationsOpen = request()->routeIs('patients.*')
+            || request()->routeIs('test-types.*')
+            || request()->routeIs('test-requests.*')
+            || request()->routeIs('results.*')
+            || request()->routeIs('payments.*');
+    @endphp
 
-{{-- Accounts Payable (Admins Only) --}}
-@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
-<a href="{{ route('accounting.accounts-payable') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('accounting.accounts-payable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-    <span>📋</span>
-    Accounts Payable
-</a>
-@endif
+    <div x-data="{ open: {{ $operationsOpen ? 'true' : 'false' }} }">
 
-{{-- Trial Balance (Admins Only) --}}
-@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
-<a href="{{ route('accounting.trial-balance') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('accounting.trial-balance*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-    <span>📊</span>
-    Trial Balance
-</a>
-@endif
+        <button
+            type="button"
+            @click="open = !open"
+            class="flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition
+            {{ $operationsOpen ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}"
+        >
+            <span class="flex items-center gap-3">
+                <span>🧪</span>
+                Laboratory Operations
+            </span>
 
-{{-- Reports --}}
-<a href="{{ route('reports.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-   {{ request()->routeIs('reports.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+            <span class="text-xs transition-transform"
+                  :class="{ 'rotate-180': open }">
+                ▼
+            </span>
+        </button>
 
-    <span>📊</span>
-    Reports
+        <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
 
-</a>
+            {{-- Patients --}}
+            <a href="{{ route('patients.index') }}"
+               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+               {{ request()->routeIs('patients.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                <span>🩺</span>
+                Patients
+            </a>
 
-    <!-- Future Modules -->
+            {{-- Test Types --}}
+            <a href="{{ route('test-types.index') }}"
+               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+               {{ request()->routeIs('test-types.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                <span>🧪</span>
+                Test Types
+            </a>
+
+            {{-- Test Requests --}}
+            <a href="{{ route('test-requests.index') }}"
+               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+               {{ request()->routeIs('test-requests.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                <span>🧾</span>
+                Test Requests
+            </a>
+
+            {{-- Results --}}
+            <a href="{{ route('results.index') }}"
+               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+               {{ request()->routeIs('results.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                <span>📄</span>
+                Results
+            </a>
+
+            {{-- Payments --}}
+            <a href="{{ route('payments.index') }}"
+               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+               {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                <span>💳</span>
+                Payments
+            </a>
+
+        </div>
+    </div>
 
 
+    {{-- Accounting --}}
+    @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
 
-   
+        @php
+            $accountingOpen = request()->routeIs('accounting.*');
+        @endphp
+
+        <div x-data="{ open: {{ $accountingOpen ? 'true' : 'false' }} }">
+
+            <button
+                type="button"
+                @click="open = !open"
+                class="flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition
+                {{ $accountingOpen ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}"
+            >
+                <span class="flex items-center gap-3">
+                    <span>📊</span>
+                    Accounting
+                </span>
+
+                <span class="text-xs transition-transform"
+                      :class="{ 'rotate-180': open }">
+                    ▼
+                </span>
+            </button>
+
+            <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
+
+                {{-- General Ledger --}}
+                <a href="{{ route('accounting.general-ledger') }}"
+                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+                   {{ request()->routeIs('accounting.general-ledger') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <span>📒</span>
+                    Account Ledger
+                </a>
+
+                {{-- Petty Cash --}}
+                <a href="{{ route('accounting.petty-cash.funds.index') }}"
+                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+                   {{ request()->routeIs('accounting.petty-cash.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <span>💵</span>
+                    Petty Cash
+                </a>
+
+                {{-- Accounts Receivable --}}
+                <a href="{{ route('accounting.accounts-receivable') }}"
+                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+                   {{ request()->routeIs('accounting.accounts-receivable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <span>💰</span>
+                    Accounts Receivable
+                </a>
+
+                {{-- Accounts Payable --}}
+                <a href="{{ route('accounting.accounts-payable') }}"
+                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+                   {{ request()->routeIs('accounting.accounts-payable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <span>📋</span>
+                    Accounts Payable
+                </a>
+
+                {{-- Operating Expenses --}}
+                <a href="{{ route('accounting.expenses') }}"
+                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+                   {{ request()->routeIs('accounting.expenses*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <span>💸</span>
+                    Operating Expenses
+                </a>
+
+                {{-- Trial Balance --}}
+                <a href="{{ route('accounting.trial-balance') }}"
+                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+                   {{ request()->routeIs('accounting.trial-balance*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <span>📊</span>
+                    Trial Balance
+                </a>
+
+            </div>
+        </div>
+
+    @endif
 
 
+    {{-- Reports --}}
+    <a href="{{ route('reports.index') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+       {{ request()->routeIs('reports.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+        <span>📊</span>
+        Reports
+    </a>
 
+
+    {{-- Settings --}}
     <div class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-500">
         <span>⚙️</span>
         Settings
     </div>
 
 </nav>
+
+
+
+
 
 </aside>

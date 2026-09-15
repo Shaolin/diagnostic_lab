@@ -1,205 +1,234 @@
-<?php
+<aside class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-700">
 
-namespace App\Services;
+    <!-- Logo -->
+    <div class="flex h-16 items-center border-b border-slate-700 px-6">
 
-use App\Models\Payment;
-use App\Models\TestRequest;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
-use App\Models\ChartOfAccount;
-use App\Services\JournalEntryService;
+        <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
 
-class PaymentService
-{
-    /**
-     * Record a payment against a test request.
-     */
-    public function recordPayment(
-        TestRequest $testRequest,
-        array $data,
-        int $receivedBy
-    ): Payment {
-        return DB::transaction(function () use ($testRequest, $data, $receivedBy) {
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-xl font-bold text-white">
+                🧪
+            </div>
 
-            $amount = (float) $data['amount'];
+            <div>
+                <h1 class="text-lg font-bold text-white">
+                    Diagnostic Lab
+                </h1>
 
-            /*
-            |--------------------------------------------------------------------------
-            | Validate Payment Amount
-            |--------------------------------------------------------------------------
-            */
+               <p class="text-xs text-slate-400">
 
-            if ($amount <= 0) {
-                throw ValidationException::withMessages([
-                    'amount' => 'Payment amount must be greater than zero.',
-                ]);
-            }
+    @if(auth()->user()->isSuperAdmin())
+        Super Admin
+    @elseif(auth()->user()->isAdmin())
+        Laboratory Administrator
+    @else
+        Staff
+    @endif
 
-            /*
-            |--------------------------------------------------------------------------
-            | Check Outstanding Balance
-            |--------------------------------------------------------------------------
-            */
+</p>
+            </div>
 
-            $balance = $testRequest->balance();
+        </a>
 
-            if ($balance <= 0) {
-                throw ValidationException::withMessages([
-                    'amount' => 'This test request has already been fully paid.',
-                ]);
-            }
+    </div>
 
-            if ($amount > $balance) {
-                throw ValidationException::withMessages([
-                    'amount' => 'Payment cannot be greater than the outstanding balance of ₦'
-                        . number_format($balance, 2) . '.',
-                ]);
-            }
+    
+    <!-- Navigation -->
+<nav class="mt-6 space-y-2 px-4">
 
-            /*
-            |--------------------------------------------------------------------------
-            | Create Payment
-            |--------------------------------------------------------------------------
-            */
+    {{-- Dashboard --}}
+    <a href="{{ route('dashboard') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+       {{ request()->routeIs('dashboard') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
 
-            return Payment::create([
-                'laboratory_id' => $testRequest->laboratory_id,
-                'test_request_id' => $testRequest->id,
-                'amount' => $amount,
-                'payment_method' => $data['payment_method'],
-                'payment_reference' => $data['payment_reference'] ?? null,
-                'paid_at' => $data['paid_at'] ?? now(),
-                'received_by' => $receivedBy,
-                'remarks' => $data['remarks'] ?? null,
-            ]);
-        });
-    }
-}
+        <span>🏠</span>
+        Dashboard
+
+    </a>
+
+    {{-- Laboratories (Admins Only) --}}
+   @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+
+<a href="{{ route('laboratories.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('laboratories.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>🏥</span>
+    Laboratories
+
+</a>
+
+@endif
+
+    @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+
+<a href="{{ route('users.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('users.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>👤</span>
+    Users
+
+</a>
+
+@endif
+
+{{-- Branches (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+
+<a href="{{ route('branches.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('branches.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>🏢</span>
+    Branches
+
+</a>
+
+@endif
+
+{{-- Patients --}}
+<a href="{{ route('patients.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('patients.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>🩺</span>
+    Patients
+
+</a>
+
+{{-- Test Types --}}
+<a href="{{ route('test-types.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('test-types.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>🧪</span>
+    Test Types
+
+</a>
+
+{{-- Test Requests --}}
+<a href="{{ route('test-requests.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('test-requests.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>🧾</span>
+    Test Requests
+
+</a>
+
+{{-- Results --}}
+<a href="{{ route('results.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('results.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📄</span>
+    Results
+
+</a>
+
+{{-- Payments --}}
+<a href="{{ route('payments.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>💳</span>
+    Payments
+
+</a>
+
+{{-- Account Ledger (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+
+<a href="{{ route('accounting.general-ledger') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.general-ledger') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📒</span>
+    Account Ledger
+
+</a>
+
+@endif
+
+
+{{-- Petty Cash (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+
+<a href="{{ route('accounting.petty-cash.funds.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.petty-cash.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>💵</span>
+    Petty Cash
+
+</a>
+
+@endif
+
+
+{{-- Accounts Receivable (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+<a href="{{ route('accounting.accounts-receivable') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.accounts-receivable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+    <span>💰</span>
+    Accounts Receivable
+</a>
+@endif
+
+{{-- Accounts Payable (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+<a href="{{ route('accounting.accounts-payable') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.accounts-payable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+    <span>📋</span>
+    Accounts Payable
+</a>
+@endif
+
+{{-- Operating Expenses (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+<a href="{{ route('accounting.expenses') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.expenses*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+    <span>💸</span>
+    Operating Expenses
+</a>
+@endif
+
+{{-- Trial Balance (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+<a href="{{ route('accounting.trial-balance') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.trial-balance*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+    <span>📊</span>
+    Trial Balance
+</a>
+@endif
+
+{{-- Reports --}}
+<a href="{{ route('reports.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('reports.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📊</span>
+    Reports
+
+</a>
+
+    <!-- Future Modules -->
 
 
 
-paymentService
-<?php
+   
 
-namespace App\Services;
 
-use App\Models\Payment;
-use App\Models\TestRequest;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
-use App\Models\ChartOfAccount;
-use App\Services\JournalEntryService;
 
-class PaymentService
-{
-    /**
-     * Record a payment against a test request.
-     */
+    <div class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-500">
+        <span>⚙️</span>
+        Settings
+    </div>
 
-     public function __construct(
-        protected JournalEntryService $journalEntryService
-    ) {
-    }
-    public function recordPayment(
-        TestRequest $testRequest,
-        array $data,
-        int $receivedBy
-    ): Payment {
-        return DB::transaction(function () use ($testRequest, $data, $receivedBy) {
+</nav>
 
-            $amount = (float) $data['amount'];
-
-            /*
-            |--------------------------------------------------------------------------
-            | Validate Payment Amount
-            |--------------------------------------------------------------------------
-            */
-
-            if ($amount <= 0) {
-                throw ValidationException::withMessages([
-                    'amount' => 'Payment amount must be greater than zero.',
-                ]);
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Check Outstanding Balance
-            |--------------------------------------------------------------------------
-            */
-
-            $balance = $testRequest->balance();
-
-            if ($balance <= 0) {
-                throw ValidationException::withMessages([
-                    'amount' => 'This test request has already been fully paid.',
-                ]);
-            }
-
-            if ($amount > $balance) {
-                throw ValidationException::withMessages([
-                    'amount' => 'Payment cannot be greater than the outstanding balance of ₦'
-                        . number_format($balance, 2) . '.',
-                ]);
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Create Payment
-            |--------------------------------------------------------------------------
-            */
-
-            $payment = Payment::create([
-    'laboratory_id' => $testRequest->laboratory_id,
-    'test_request_id' => $testRequest->id,
-    'amount' => $amount,
-    'payment_method' => $data['payment_method'],
-    'payment_reference' => $data['payment_reference'] ?? null,
-    'paid_at' => $data['paid_at'] ?? now(),
-    'received_by' => $receivedBy,
-    'remarks' => $data['remarks'] ?? null,
-]);
-
-$cashOrBankAccount = match ($payment->payment_method) {
-    'Cash' => '1100',
-    'Transfer', 'POS' => '1200',
-    default => '1100',
-};
-
-$debitAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
-    ->where('code', $cashOrBankAccount)
-    ->firstOrFail();
-
-$incomeAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
-    ->where('code', '4100')
-    ->firstOrFail();
-
-$this->journalEntryService->create([
-    'laboratory_id' => $testRequest->laboratory_id,
-    'branch_id' => $testRequest->branch_id,
-    'entry_date' => $payment->paid_at->toDateString(),
-    'reference' => 'PAY-' . $payment->id,
-    'description' => 'Laboratory service payment',
-    'source_type' => Payment::class,
-    'source_id' => $payment->id,
-    'created_by' => $receivedBy,
-    'status' => 'posted',
-    'posted_at' => now(),
-], [
-    [
-        'account_id' => $debitAccount->id,
-        'debit' => $amount,
-        'credit' => 0,
-        'description' => $payment->payment_method . ' payment received',
-    ],
-    [
-        'account_id' => $incomeAccount->id,
-        'debit' => 0,
-        'credit' => $amount,
-        'description' => 'Laboratory service income',
-    ],
-]);
-
-return $payment;
-        });
-    }
-}
+</aside>
