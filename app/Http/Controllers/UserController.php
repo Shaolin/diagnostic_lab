@@ -62,6 +62,18 @@ public function index(Request $request)
 
 
 
+// public function create()
+// {
+//     $this->authorize('create', User::class);
+
+//     $roles = [
+//         UserRole::ADMIN,
+//         UserRole::STAFF,
+//     ];
+
+//     return view('users.create', compact('roles'));
+// }
+
 public function create()
 {
     $this->authorize('create', User::class);
@@ -71,7 +83,12 @@ public function create()
         UserRole::STAFF,
     ];
 
-    return view('users.create', compact('roles'));
+    $branches = auth()->user()->laboratory->branches()
+        ->where('is_active', true)
+        ->orderBy('name')
+        ->get();
+
+    return view('users.create', compact('roles', 'branches'));
 }
 
 
@@ -96,19 +113,39 @@ public function create()
 
     /**
      * Display the specified resource.
-     */
-    public function show(User $user)
+//      */
+//     public function show(User $user)
+// {
+//     $this->authorize('view', $user);
+
+//     return view('users.show', compact('user'));
+// }
+
+public function show(User $user)
 {
     $this->authorize('view', $user);
 
+    $user->load('branch');
+
     return view('users.show', compact('user'));
 }
-
     /**
      * Show the form for editing the specified resource.
      */
 
 
+
+// public function edit(User $user)
+// {
+//     $this->authorize('update', $user);
+
+//     $roles = [
+//         UserRole::ADMIN,
+//         UserRole::STAFF,
+//     ];
+
+//     return view('users.edit', compact('user', 'roles'));
+// }
 
 public function edit(User $user)
 {
@@ -119,7 +156,12 @@ public function edit(User $user)
         UserRole::STAFF,
     ];
 
-    return view('users.edit', compact('user', 'roles'));
+    $branches = auth()->user()->laboratory->branches()
+        ->where('is_active', true)
+        ->orderBy('name')
+        ->get();
+
+    return view('users.edit', compact('user', 'roles', 'branches'));
 }
 
 

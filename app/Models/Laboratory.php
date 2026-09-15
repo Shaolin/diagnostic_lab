@@ -68,6 +68,25 @@ public function testRequests(): HasMany
     return $this->hasMany(TestRequest::class);
 }
 
+public function branches(): HasMany
+{
+    return $this->hasMany(Branch::class);
+}
+
+public function modules(): HasMany
+{
+    return $this->hasMany(LaboratoryModule::class);
+}
+
+
+public function hasModule(string $module): bool
+{
+    return $this->modules()
+        ->where('module', $module)
+        ->where('enabled', true)
+        ->exists();
+}
+
     /*
     |--------------------------------------------------------------------------
     | Future Relationships

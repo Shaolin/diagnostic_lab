@@ -29,6 +29,14 @@ public function index(Request $request)
         ])
         ->whereHas('testRequestItem.testRequest', function ($query) use ($laboratoryId) {
             $query->where('laboratory_id', $laboratoryId);
+
+            // Staff can only see results from their own branch.
+            if (auth()->user()->isStaff()) {
+                $query->where(
+                    'branch_id',
+                    auth()->user()->branch_id
+                );
+            }
         })
         ->when($request->search, function ($query, $search) {
             $query->where(function ($query) use ($search) {

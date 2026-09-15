@@ -72,6 +72,20 @@
 
 @endif
 
+{{-- Branches (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+
+<a href="{{ route('branches.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('branches.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>🏢</span>
+    Branches
+
+</a>
+
+@endif
+
 {{-- Patients --}}
 <a href="{{ route('patients.index') }}"
    class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
@@ -121,6 +135,51 @@
     Payments
 
 </a>
+
+{{-- Account Ledger (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+
+<a href="{{ route('accounting.general-ledger') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.general-ledger') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📒</span>
+    Account Ledger
+
+</a>
+
+@endif
+
+
+{{-- Accounts Receivable (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+<a href="{{ route('accounting.accounts-receivable') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.accounts-receivable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+    <span>💰</span>
+    Accounts Receivable
+</a>
+@endif
+
+{{-- Accounts Payable (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+<a href="{{ route('accounting.accounts-payable') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.accounts-payable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+    <span>📋</span>
+    Accounts Payable
+</a>
+@endif
+
+{{-- Trial Balance (Admins Only) --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+<a href="{{ route('accounting.trial-balance') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
+   {{ request()->routeIs('accounting.trial-balance*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+    <span>📊</span>
+    Trial Balance
+</a>
+@endif
 
 {{-- Reports --}}
 <a href="{{ route('reports.index') }}"

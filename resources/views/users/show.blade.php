@@ -67,6 +67,17 @@
             </p>
         </div>
 
+        {{-- Branch --}}
+<div>
+    <p class="mb-1 text-sm font-medium text-slate-400">
+        Branch
+    </p>
+
+    <p class="text-white">
+        {{ $user->branch?->name ?? 'Not assigned' }}
+    </p>
+</div>
+
         {{-- Role --}}
         <div>
             <p class="mb-1 text-sm font-medium text-slate-400">

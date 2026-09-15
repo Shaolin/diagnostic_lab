@@ -1,6 +1,10 @@
 <?php
 
+use App\Http\Controllers\AccountsPayableController;
+use App\Http\Controllers\AccountsReceivableController;
+use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GeneralLedgerController;
 use App\Http\Controllers\LaboratoryController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\PatientTrackingController;
@@ -9,9 +13,13 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ResultController;
 use App\Http\Controllers\SuperAdminController;
+use App\Http\Controllers\SuperAdminModuleController;
+use App\Http\Controllers\SupplierInvoiceController;
+use App\Http\Controllers\SupplierPaymentController;
 use App\Http\Controllers\TestRequestController;
 use App\Http\Controllers\TestRequestItemController;
 use App\Http\Controllers\TestTypeController;
+use App\Http\Controllers\TrialBalanceController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -60,6 +68,9 @@ Route::middleware('auth')->group(function () {
 
     // Laboratories
     Route::resource('laboratories', LaboratoryController::class);
+
+    // Branches
+    Route::resource('branches', BranchController::class);
 
     // Users (Admin only)
     Route::middleware('admin')->group(function () {
@@ -184,6 +195,7 @@ Route::middleware(['auth'])
 
 
 
+
 Route::middleware(['auth', 'super_admin'])
     ->prefix('super-admin')
     ->name('super-admin.')
@@ -192,8 +204,38 @@ Route::middleware(['auth', 'super_admin'])
         Route::get('/', [SuperAdminController::class, 'index'])
             ->name('dashboard');
 
+        Route::get('/laboratories/{laboratory}/modules', [SuperAdminModuleController::class, 'edit'])
+            ->name('modules.edit');
+
+        Route::put('/laboratories/{laboratory}/modules', [SuperAdminModuleController::class, 'update'])
+            ->name('modules.update');
+
     });
 
+    Route::get('/accounting/general-ledger', [GeneralLedgerController::class, 'index'])
+    ->name('accounting.general-ledger');
+    Route::get('/accounting/accounts-receivable', [AccountsReceivableController::class, 'index'])
+    ->name('accounting.accounts-receivable');
+    Route::get('/accounting/accounts-receivable/{testRequest}', [AccountsReceivableController::class, 'show'])
+    ->name('accounting.accounts-receivable.show');
+    Route::get('/accounting/accounts-payable', [AccountsPayableController::class, 'index'])
+    ->name('accounting.accounts-payable');
+
+    Route::get('/accounting/accounts-payable/create', [SupplierInvoiceController::class, 'create'])
+    ->name('accounting.accounts-payable.create');
+
+Route::post('/accounting/accounts-payable', [SupplierInvoiceController::class, 'store'])
+    ->name('accounting.accounts-payable.store');
+Route::get('/accounting/accounts-payable/{supplierInvoice}', [SupplierInvoiceController::class, 'show'])
+    ->name('accounting.accounts-payable.show');
+    Route::get('/accounting/accounts-payable/{supplierInvoice}/payment', [SupplierPaymentController::class, 'create'])
+    ->name('accounting.accounts-payable.payment.create');
+    Route::post('/accounting/accounts-payable/{supplierInvoice}/payment', [SupplierPaymentController::class, 'store'])
+    ->name('accounting.accounts-payable.payment.store');
+   
+
+Route::get('/accounting/trial-balance', [TrialBalanceController::class, 'index'])
+    ->name('accounting.trial-balance');
 
 
 

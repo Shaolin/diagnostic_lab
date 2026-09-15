@@ -45,6 +45,11 @@ class StoreUserRequest extends FormRequest
                     UserRole::STAFF->value,
                 ]),
             ],
+     'branch_id' => [
+    'nullable',
+    Rule::exists('branches', 'id')
+        ->where('laboratory_id', auth()->user()->laboratory_id),
+],
 
             'password' => [
                 'required',

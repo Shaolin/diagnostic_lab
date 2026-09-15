@@ -106,12 +106,43 @@ class UploadResult
             |--------------------------------------------------------------------------
             */
 
-            $path = Storage::disk('private')->putFileAs(
-                $directory,
-                $pdf,
-                $filename
-            );
+            // $path = Storage::disk('private')->putFileAs(
+            //     $directory,
+            //     $pdf,
+            //     $filename
+            // );
 
+
+
+$stream = fopen($pdf->getPathname(), 'rb');
+
+if ($stream === false) {
+    throw new RuntimeException('Unable to read the uploaded result file.');
+}
+
+// $path = Storage::disk('private')->put(
+//     $directory . '/' . $filename,
+//     $stream
+// );
+
+$path = $directory . '/' . $filename;
+
+$stored = Storage::disk('private')->put(
+    $path,
+    $stream
+);
+
+if (! $stored) {
+    throw new RuntimeException(
+        'Unable to store the uploaded result file.'
+    );
+}
+
+fclose($stream);
+
+if ($path === false) {
+    throw new RuntimeException('Unable to store the uploaded result file.');
+}
             /*
             |--------------------------------------------------------------------------
             | Create Result

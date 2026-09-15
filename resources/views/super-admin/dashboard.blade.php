@@ -167,6 +167,9 @@
                                 <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
                                     Registered
                                 </th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                       Actions
+                                </th>
 
                             </tr>
 
@@ -260,6 +263,13 @@
                                         </span>
 
                                     </td>
+                                    {{-- Actions --}}
+<td class="px-6 py-4">
+    <a href="{{ route('super-admin.modules.edit', $laboratory) }}"
+       class="inline-flex items-center rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-600 transition">
+        Manage Modules
+    </a>
+</td>
 
                                 </tr>
 
@@ -268,7 +278,7 @@
                                 <tr>
 
                                     <td
-                                        colspan="5"
+                                        colspan="6"
                                         class="px-6 py-12 text-center"
                                     >
 

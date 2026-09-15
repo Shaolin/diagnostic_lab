@@ -8,12 +8,15 @@ use App\Services\TestRequestCalculator;
 use App\Services\TrackingCodeGenerator;
 use Illuminate\Support\Facades\DB;
 use App\Models\TestRequestItem;
+use App\Models\ChartOfAccount;
+use App\Services\JournalEntryService;
 
 class CreateTestRequest
 {
     public function __construct(
         protected TrackingCodeGenerator $trackingCodeGenerator,
-        protected TestRequestCalculator $calculator
+        protected TestRequestCalculator $calculator,
+          protected JournalEntryService $journalEntryService
     ) {
     }
 
@@ -53,6 +56,7 @@ class CreateTestRequest
 
         $testRequest = TestRequest::create([
             'laboratory_id' => auth()->user()->laboratory_id,
+             'branch_id' => auth()->user()->branch_id,
             'patient_id' => $data['patient_id'],
             'tracking_code' => $this->trackingCodeGenerator->generate(),
             'total_amount' => $totalAmount,
@@ -60,6 +64,40 @@ class CreateTestRequest
             'overall_status' => TestRequest::STATUS_PENDING,
             'requested_by' => auth()->id(),
         ]);
+
+        $receivableAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
+    ->where('code', '1300')
+    ->firstOrFail();
+
+$incomeAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
+    ->where('code', '4100')
+    ->firstOrFail();
+
+$this->journalEntryService->create([
+    'laboratory_id' => $testRequest->laboratory_id,
+    'branch_id' => $testRequest->branch_id,
+    'entry_date' => $testRequest->created_at->toDateString(),
+    'reference' => 'TR-' . $testRequest->id,
+    'description' => 'Laboratory service billed',
+    'source_type' => TestRequest::class,
+    'source_id' => $testRequest->id,
+    'created_by' => auth()->id(),
+    'status' => 'posted',
+    'posted_at' => now(),
+], [
+    [
+        'account_id' => $receivableAccount->id,
+        'debit' => $totalAmount,
+        'credit' => 0,
+        'description' => 'Amount receivable from patient',
+    ],
+    [
+        'account_id' => $incomeAccount->id,
+        'debit' => 0,
+        'credit' => $totalAmount,
+        'description' => 'Laboratory service income',
+    ],
+]);
 
         /*
         |--------------------------------------------------------------------------

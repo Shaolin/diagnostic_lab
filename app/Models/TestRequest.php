@@ -22,6 +22,7 @@ public const PAYMENT_PAID = 'Paid';
 
     protected $fillable = [
         'laboratory_id',
+        'branch_id',
         'patient_id',
         'tracking_code',
         'total_amount',
@@ -45,6 +46,11 @@ public const PAYMENT_PAID = 'Paid';
     {
         return $this->belongsTo(Laboratory::class);
     }
+
+    public function branch(): BelongsTo
+{
+    return $this->belongsTo(Branch::class);
+}
 
     public function patient(): BelongsTo
     {

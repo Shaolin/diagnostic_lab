@@ -90,6 +90,13 @@ public function show(Patient $patient)
         'testRequests' => function ($query) {
             $query->latest()
                 ->with('items');
+
+            if (auth()->user()->isStaff()) {
+                $query->where(
+                    'branch_id',
+                    auth()->user()->branch_id
+                );
+            }
         },
     ]);
 

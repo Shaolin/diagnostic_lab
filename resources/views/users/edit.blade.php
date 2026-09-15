@@ -115,6 +115,34 @@
         </select>
     </div>
 
+    {{-- Branch --}}
+<div>
+    <label for="branch_id" class="mb-2 block text-sm font-medium text-slate-300">
+        Branch
+    </label>
+
+    <select
+        id="branch_id"
+        name="branch_id"
+        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
+    >
+        <option value="">Select Branch</option>
+
+        @foreach ($branches as $branch)
+            <option
+                value="{{ $branch->id }}"
+                @selected(old('branch_id', $user->branch_id) == $branch->id)
+            >
+                {{ $branch->name }}
+            </option>
+        @endforeach
+    </select>
+
+    @error('branch_id')
+        <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+    @enderror
+</div>
+
     {{-- Active --}}
     <div class="flex items-end">
         <label class="inline-flex items-center gap-3 text-slate-300">

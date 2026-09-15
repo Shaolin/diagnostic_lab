@@ -14,6 +14,7 @@ use Illuminate\Notifications\Notifiable;
 
 #[Fillable([
     'laboratory_id',
+     'branch_id',
     'name',
     'email',
     'password',
@@ -51,6 +52,14 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Laboratory::class);
     }
+
+    /**
+ * Get the branch this user belongs to.
+ */
+public function branch(): BelongsTo
+{
+    return $this->belongsTo(Branch::class);
+}
 
     /**
      * Determine if the user is the super admin.

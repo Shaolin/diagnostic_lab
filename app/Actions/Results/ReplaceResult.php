@@ -91,11 +91,45 @@ class ReplaceResult
         ) {
 
             // Store the new PDF first
-            $newPath = Storage::disk('private')->putFileAs(
-                $directory,
-                $pdf,
-                $filename
-            );
+            // $newPath = Storage::disk('private')->putFileAs(
+            //     $directory,
+            //     $pdf,
+            //     $filename
+            // );
+
+            $stream = fopen($pdf->getPathname(), 'rb');
+
+if ($stream === false) {
+    throw new RuntimeException(
+        'Unable to read the uploaded replacement result file.'
+    );
+}
+
+// $newPath = Storage::disk('private')->put(
+//     $directory . '/' . $filename,
+//     $stream
+// );
+
+$newPath = $directory . '/' . $filename;
+
+$stored = Storage::disk('private')->put(
+    $newPath,
+    $stream
+);
+
+if (! $stored) {
+    throw new RuntimeException(
+        'The new result file could not be stored.'
+    );
+}
+
+fclose($stream);
+
+if ($newPath === false) {
+    throw new RuntimeException(
+        'The new result file could not be stored.'
+    );
+}
 
             if (! $newPath) {
                 throw new RuntimeException(
