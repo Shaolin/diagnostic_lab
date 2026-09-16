@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 class SupplierInvoice extends Model
 {
     use HasFactory;
@@ -13,6 +15,7 @@ class SupplierInvoice extends Model
     protected $fillable = [
         'laboratory_id',
         'branch_id',
+          'supplier_id',
          'expense_account_id',
         'invoice_number',
         'supplier_name',
@@ -77,4 +80,15 @@ class SupplierInvoice extends Model
 {
     return $this->hasMany(SupplierPayment::class);
 }
+
+public function items(): HasMany
+{
+    return $this->hasMany(SupplierInvoiceItem::class);
+}
+public function supplier(): BelongsTo
+{
+    return $this->belongsTo(Supplier::class);
+}
+
+
 }

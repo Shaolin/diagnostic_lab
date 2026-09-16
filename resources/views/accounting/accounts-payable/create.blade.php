@@ -35,24 +35,33 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                        {{-- Supplier Name --}}
-                        <div>
-                            <label for="supplier_name"
-                                   class="block text-sm font-medium text-slate-300 mb-1">
-                                Supplier Name <span class="text-red-400">*</span>
-                            </label>
+                      {{-- Supplier --}}
+<div>
+    <label for="supplier_id"
+           class="block text-sm font-medium text-slate-300 mb-1">
+        Supplier <span class="text-red-400">*</span>
+    </label>
 
-                            <input type="text"
-                                   name="supplier_name"
-                                   id="supplier_name"
-                                   value="{{ old('supplier_name') }}"
-                                   required
-                                   class="w-full rounded-lg bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-blue-500">
+    <select name="supplier_id"
+            id="supplier_id"
+            required
+            class="w-full rounded-lg bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-blue-500">
 
-                            @error('supplier_name')
-                                <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
-                            @enderror
-                        </div>
+        <option value="">Select supplier</option>
+
+        @foreach($suppliers as $supplier)
+            <option value="{{ $supplier->id }}"
+                {{ old('supplier_id') == $supplier->id ? 'selected' : '' }}>
+                {{ $supplier->name }}
+            </option>
+        @endforeach
+
+    </select>
+
+    @error('supplier_id')
+        <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+    @enderror
+</div>
 
                         {{-- Invoice Number --}}
                         <div>
@@ -73,41 +82,9 @@
                             @enderror
                         </div>
 
-                        {{-- Phone --}}
-                        <div>
-                            <label for="supplier_phone"
-                                   class="block text-sm font-medium text-slate-300 mb-1">
-                                Supplier Phone
-                            </label>
+                       
 
-                            <input type="text"
-                                   name="supplier_phone"
-                                   id="supplier_phone"
-                                   value="{{ old('supplier_phone') }}"
-                                   class="w-full rounded-lg bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-blue-500">
-
-                            @error('supplier_phone')
-                                <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Email --}}
-                        <div>
-                            <label for="supplier_email"
-                                   class="block text-sm font-medium text-slate-300 mb-1">
-                                Supplier Email
-                            </label>
-
-                            <input type="email"
-                                   name="supplier_email"
-                                   id="supplier_email"
-                                   value="{{ old('supplier_email') }}"
-                                   class="w-full rounded-lg bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-blue-500">
-
-                            @error('supplier_email')
-                                <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
-                            @enderror
-                        </div>
+                       
 
                     </div>
                 </div>
@@ -184,14 +161,14 @@
                                 Invoice Amount <span class="text-red-400">*</span>
                             </label>
 
-                            <input type="number"
-                                   name="amount"
-                                   id="amount"
-                                   value="{{ old('amount') }}"
-                                   min="0.01"
-                                   step="0.01"
-                                   required
-                                   class="w-full rounded-lg bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-blue-500">
+
+                                   <input type="number"
+       name="amount"
+       id="invoice-amount"
+       step="0.01"
+       min="0"
+       readonly
+       class="w-full rounded-lg bg-slate-700 border-slate-600 text-white">
 
                             @error('amount')
                                 <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
@@ -256,6 +233,90 @@
                     </div>
                 </div>
 
+                    {{-- Invoice Items --}}
+<div class="mt-6">
+    <h3 class="text-lg font-semibold text-white mb-3">
+        Invoice Items
+    </h3>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left text-slate-300">
+            <thead class="bg-slate-700 text-slate-200">
+                <tr>
+                    <th class="px-4 py-3">Item</th>
+                    <th class="px-4 py-3">Quantity</th>
+                    <th class="px-4 py-3">Unit Cost</th>
+                    <th class="px-4 py-3">Total</th>
+                </tr>
+            </thead>
+<tbody id="invoice-items">
+    <tr class="border-b border-slate-700 invoice-item-row">
+        <td class="px-4 py-3">
+            <select name="items[0][inventory_item_id]"
+                    class="w-full rounded-lg bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-blue-500">
+                <option value="">Select item</option>
+
+                @foreach($inventoryItems as $item)
+                    <option value="{{ $item->id }}">
+                        {{ $item->name }}
+                    </option>
+                @endforeach
+            </select>
+        </td>
+
+        <td class="px-4 py-3">
+            <input type="number"
+                   name="items[0][quantity]"
+                   step="0.01"
+                   min="0"
+                   class="item-quantity w-full rounded-lg bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-blue-500">
+        </td>
+
+        <td class="px-4 py-3">
+            <input type="number"
+                   name="items[0][unit_cost]"
+                   step="0.01"
+                   min="0"
+                   class="item-unit-cost w-full rounded-lg bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-blue-500">
+        </td>
+
+        <td class="px-4 py-3 text-white">
+          
+             {{-- <span id="item-total-0">₦0.00</span> --}}
+              <span class="item-total">₦0.00</span>
+        </td>
+
+        <td class="px-4 py-3">
+            <button type="button"
+                    class="remove-item text-red-400 hover:text-red-300">
+                Remove
+            </button>
+        </td>
+       
+    </tr>
+</tbody>
+              
+        </table>
+
+        <div class="mt-4 flex justify-end">
+    <div class="text-right">
+        <p class="text-sm text-slate-400">Invoice Total</p>
+        <p id="invoice-total-display"
+           class="text-2xl font-bold text-white">
+            ₦0.00
+        </p>
+    </div>
+</div>
+        <div class="mt-3">
+    <button type="button"
+            id="add-item"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+        + Add Item
+    </button>
+</div>
+    </div>
+</div>
+
                 {{-- Actions --}}
                 <div class="flex flex-col sm:flex-row sm:justify-end gap-3 pt-4 border-t border-slate-700">
 
@@ -275,4 +336,158 @@
         </div>
 
     </div>
+
+   <script>
+    let itemIndex = 1;
+
+    const itemsContainer = document.getElementById('invoice-items');
+    const addItemButton = document.getElementById('add-item');
+
+    function calculateItemTotal(row) {
+        const quantity = parseFloat(
+            row.querySelector('.item-quantity').value
+        ) || 0;
+
+        const unitCost = parseFloat(
+            row.querySelector('.item-unit-cost').value
+        ) || 0;
+
+        const total = quantity * unitCost;
+
+        row.querySelector('.item-total').textContent =
+            '₦' + total.toLocaleString('en-NG', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+    }
+
+    function attachRowEvents(row) {
+        row.querySelector('.item-quantity')
+            .addEventListener('input', () => calculateItemTotal(row));
+
+        row.querySelector('.item-unit-cost')
+            .addEventListener('input', () => calculateItemTotal(row));
+
+        row.querySelector('.remove-item')
+            .addEventListener('click', () => {
+                const rows = itemsContainer.querySelectorAll('.invoice-item-row');
+
+                if (rows.length > 1) {
+                    row.remove();
+                }
+            });
+    }
+
+    document.querySelectorAll('.invoice-item-row').forEach(row => {
+        attachRowEvents(row);
+    });
+
+   function calculateInvoiceTotal() {
+    let invoiceTotal = 0;
+
+    document.querySelectorAll('.invoice-item-row').forEach(row => {
+        const quantityInput = row.querySelector('.item-quantity');
+        const unitCostInput = row.querySelector('.item-unit-cost');
+
+        const quantity = parseFloat(quantityInput.value) || 0;
+        const unitCost = parseFloat(unitCostInput.value) || 0;
+
+        invoiceTotal += quantity * unitCost;
+    });
+
+    // Display total below the table
+    const totalDisplay = document.getElementById('invoice-total-display');
+
+    if (totalDisplay) {
+        totalDisplay.textContent =
+            '₦' + invoiceTotal.toLocaleString('en-NG', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+    }
+
+    // Put total into the amount field
+    const amountInput = document.getElementById('invoice-amount');
+
+    if (amountInput) {
+        amountInput.value = invoiceTotal.toFixed(2);
+    }
+}
+
+
+function calculateItemTotal(row) {
+    const quantity = parseFloat(
+        row.querySelector('.item-quantity').value
+    ) || 0;
+
+    const unitCost = parseFloat(
+        row.querySelector('.item-unit-cost').value
+    ) || 0;
+
+    const total = quantity * unitCost;
+
+    row.querySelector('.item-total').textContent =
+        '₦' + total.toLocaleString('en-NG', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+    // Recalculate invoice total
+    calculateInvoiceTotal();
+}
+
+    addItemButton.addEventListener('click', () => {
+        const row = document.createElement('tr');
+
+        row.className = 'border-b border-slate-700 invoice-item-row';
+
+        row.innerHTML = `
+            <td class="px-4 py-3">
+                <select name="items[${itemIndex}][inventory_item_id]"
+                        class="w-full rounded-lg bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-blue-500">
+                    <option value="">Select item</option>
+
+                    @foreach($inventoryItems as $item)
+                        <option value="{{ $item->id }}">
+                            {{ $item->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </td>
+
+            <td class="px-4 py-3">
+                <input type="number"
+                       name="items[${itemIndex}][quantity]"
+                       step="0.01"
+                       min="0"
+                       class="item-quantity w-full rounded-lg bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-blue-500">
+            </td>
+
+            <td class="px-4 py-3">
+                <input type="number"
+                       name="items[${itemIndex}][unit_cost]"
+                       step="0.01"
+                       min="0"
+                       class="item-unit-cost w-full rounded-lg bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-blue-500">
+            </td>
+
+            <td class="px-4 py-3 text-white">
+                <span class="item-total">₦0.00</span>
+            </td>
+
+            <td class="px-4 py-3">
+                <button type="button"
+                        class="remove-item text-red-400 hover:text-red-300">
+                    Remove
+                </button>
+            </td>
+        `;
+
+        itemsContainer.appendChild(row);
+
+        attachRowEvents(row);
+
+        itemIndex++;
+    });
+</script>
 </x-app-layout>

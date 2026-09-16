@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Accounting\InventoryItemController;
+use App\Http\Controllers\Accounting\InventoryStockController;
 use App\Http\Controllers\Accounting\PettyCashFundController;
 use App\Http\Controllers\Accounting\PettyCashTransactionController;
 use App\Http\Controllers\AccountsPayableController;
@@ -8,6 +10,8 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\GeneralLedgerController;
+use App\Http\Controllers\InventoryStockIssueController;
+use App\Http\Controllers\InventoryStockMovementController;
 use App\Http\Controllers\LaboratoryController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\PatientTrackingController;
@@ -270,6 +274,37 @@ Route::get('/funds/{pettyCashFund}/transactions/create', [PettyCashTransactionCo
 Route::post('/funds/{pettyCashFund}/transactions', [PettyCashTransactionController::class, 'store'])
     ->name('transactions.store');
     });
+
+Route::prefix('accounting/inventory')
+    ->name('accounting.inventory.')
+    ->group(function () {
+
+        Route::get('/items', [InventoryItemController::class, 'index'])
+            ->name('items.index');
+
+        Route::get('/items/create', [InventoryItemController::class, 'create'])
+            ->name('items.create');
+
+        Route::post('/items', [InventoryItemController::class, 'store'])
+            ->name('items.store');
+            
+          Route::get('/stocks', [InventoryStockController::class, 'index'])
+            ->name('stocks.index');
+
+        Route::get('/stocks/create', [InventoryStockController::class, 'create'])
+            ->name('stocks.create');
+
+        Route::post('/stocks', [InventoryStockController::class, 'store'])
+            ->name('stocks.store');
+    });   
+  Route::get('/accounting/inventory/stock-issues/create', [InventoryStockIssueController::class, 'create'])
+    ->name('accounting.inventory.stock-issues.create');
+
+Route::post('/accounting/inventory/stock-issues', [InventoryStockIssueController::class, 'store'])
+    ->name('accounting.inventory.stock-issues.store');   
+    
+Route::get('/accounting/inventory/stock-movements', [InventoryStockMovementController::class, 'index'])
+    ->name('accounting.inventory.stock-movements.index');    
 
 
 

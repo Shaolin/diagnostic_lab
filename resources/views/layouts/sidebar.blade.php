@@ -223,6 +223,29 @@
                     Petty Cash
                 </a>
 
+                {{-- Inventory --}}
+<a href="{{ route('accounting.inventory.stocks.index') }}"
+    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+    {{ request()->routeIs('accounting.inventory.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+    <span>📦</span>
+    Inventory
+</a>
+
+{{-- Issue Stock --}}
+<a href="{{ route('accounting.inventory.stock-issues.create') }}"
+    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+    {{ request()->routeIs('accounting.inventory.stock-issues.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+    <span>📤</span>
+    Issue Stock
+</a>
+{{-- Stock Movement --}}
+<a href="{{ route('accounting.inventory.stock-movements.index') }}"
+    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+    {{ request()->routeIs('accounting.inventory.stock-movements.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+    <span>📋</span>
+    Stock Movement
+</a>
+
                 {{-- Accounts Receivable --}}
                 <a href="{{ route('accounting.accounts-receivable') }}"
                    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
