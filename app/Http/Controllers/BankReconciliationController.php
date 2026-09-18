@@ -167,12 +167,23 @@ public function show(BankReconciliation $bankReconciliation): View
 
     $transactions = $query->paginate(30);
 
+    $bookMovement = (float) (clone $query)
+    ->get()
+    ->sum(function ($line) {
+        return (float) $line->debit - (float) $line->credit;
+    });
+
+$bookBalance =
+    (float) $bankReconciliation->statement_opening_balance
+    + $bookMovement;
+
     return view(
         'accounting.bank-reconciliation.show',
         compact(
             'bankReconciliation',
             'transactions',
-            'reconciledLineIds'
+            'reconciledLineIds',
+             'bookBalance'
         )
     );
 }
@@ -242,5 +253,28 @@ $bankReconciliation->update([
 ]);
 
     return back()->with('success', 'Selected transactions reconciled successfully.');
+}
+
+public function complete(BankReconciliation $bankReconciliation)
+{
+    $laboratoryId = auth()->user()->laboratory_id;
+
+    abort_unless(
+        $bankReconciliation->laboratory_id === $laboratoryId,
+        403
+    );
+
+    if ($bankReconciliation->status === 'completed') {
+        return back()->with('success', 'This reconciliation is already completed.');
+    }
+
+    $bankReconciliation->update([
+        'status' => 'completed',
+    ]);
+
+    return back()->with(
+        'success',
+        'Bank reconciliation completed successfully.'
+    );
 }
 }

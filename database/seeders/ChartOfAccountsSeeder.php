@@ -38,6 +38,7 @@ class ChartOfAccountsSeeder extends Seeder
             $this->createAccount($laboratory->id, $assets->id, '1300', 'Accounts Receivable', 'asset', 130);
             $this->createAccount($laboratory->id, $assets->id, '1400', 'Inventory', 'asset', 140);
             $this->createAccount($laboratory->id, $assets->id, '1500', 'Fixed Assets', 'asset', 150);
+            $this->createAccount($laboratory->id, $assets->id, '1550', 'Accumulated Depreciation', 'asset', 155);
 
             // Liabilities
             $liabilities = ChartOfAccount::firstOrCreate(
@@ -114,6 +115,7 @@ class ChartOfAccountsSeeder extends Seeder
             $this->createAccount($laboratory->id, $expenses->id, '5500', 'Repairs & Maintenance', 'expense', 550);
             $this->createAccount($laboratory->id, $expenses->id, '5600', 'Stationery', 'expense', 560);
             $this->createAccount($laboratory->id, $expenses->id, '5700', 'Other Expenses', 'expense', 570);
+            $this->createAccount($laboratory->id, $expenses->id, '5800', 'Depreciation Expense', 'expense', 580);
         }
     }
 

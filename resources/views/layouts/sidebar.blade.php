@@ -1,4 +1,4 @@
-<aside class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-700">
+<aside class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-700 overflow-y-auto">
 
     <!-- Logo -->
     <div class="flex h-16 items-center border-b border-slate-700 px-6">
@@ -246,6 +246,29 @@
     Stock Movement
 </a>
 
+<a href="{{ route('accounting.fixed-assets.index') }}"
+    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+    {{ request()->routeIs('accounting.fixed-assets.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+    <span>🏢</span>
+    Fixed Assets
+</a>
+
+{{-- Bank Accounts --}}
+<a href="{{ route('accounting.bank-accounts.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.bank-accounts.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>🏦</span>
+    Bank Accounts
+</a>
+{{-- Bank Reconciliation --}}
+<a href="{{ route('accounting.bank-reconciliation.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.bank-reconciliation.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>🔄</span>
+    Bank Reconciliation
+</a>
                 {{-- Accounts Receivable --}}
                 <a href="{{ route('accounting.accounts-receivable') }}"
                    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition

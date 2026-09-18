@@ -6,9 +6,13 @@ use App\Http\Controllers\Accounting\PettyCashFundController;
 use App\Http\Controllers\Accounting\PettyCashTransactionController;
 use App\Http\Controllers\AccountsPayableController;
 use App\Http\Controllers\AccountsReceivableController;
+use App\Http\Controllers\BankAccountController;
+use App\Http\Controllers\BankReconciliationController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\FixedAssetController;
+use App\Http\Controllers\FixedAssetDepreciationController;
 use App\Http\Controllers\GeneralLedgerController;
 use App\Http\Controllers\InventoryStockIssueController;
 use App\Http\Controllers\InventoryStockMovementController;
@@ -306,7 +310,46 @@ Route::post('/accounting/inventory/stock-issues', [InventoryStockIssueController
 Route::get('/accounting/inventory/stock-movements', [InventoryStockMovementController::class, 'index'])
     ->name('accounting.inventory.stock-movements.index');    
 
+    Route::get('/accounting/fixed-assets', [FixedAssetController::class, 'index'])
+    ->name('accounting.fixed-assets.index');
+    Route::get('/accounting/fixed-assets/create', [FixedAssetController::class, 'create'])
+    ->name('accounting.fixed-assets.create');
 
+Route::post('/accounting/fixed-assets', [FixedAssetController::class, 'store'])
+    ->name('accounting.fixed-assets.store');
+Route::get('/accounting/fixed-assets/depreciation/create', [FixedAssetDepreciationController::class, 'create'])
+    ->name('accounting.fixed-assets.depreciation.create');
+
+Route::post('/accounting/fixed-assets/depreciation', [FixedAssetDepreciationController::class, 'store'])
+    ->name('accounting.fixed-assets.depreciation.store');
+
+Route::get('/accounting/bank-reconciliation', [BankReconciliationController::class, 'index'])
+    ->name('accounting.bank-reconciliation.index');
+
+Route::get('/accounting/bank-reconciliation/create', [BankReconciliationController::class, 'create'])
+    ->name('accounting.bank-reconciliation.create');
+
+Route::post('/accounting/bank-reconciliation', [BankReconciliationController::class, 'store'])
+    ->name('accounting.bank-reconciliation.store');
+
+Route::get('/accounting/bank-reconciliation/{bankReconciliation}', [BankReconciliationController::class, 'show'])
+    ->name('accounting.bank-reconciliation.show');
+
+
+
+Route::get('/accounting/bank-accounts', [BankAccountController::class, 'index'])
+    ->name('accounting.bank-accounts.index');
+
+Route::get('/accounting/bank-accounts/create', [BankAccountController::class, 'create'])
+    ->name('accounting.bank-accounts.create');
+
+Route::post('/accounting/bank-accounts', [BankAccountController::class, 'store'])
+    ->name('accounting.bank-accounts.store');
+Route::post('/accounting/bank-reconciliation/{bankReconciliation}/reconcile', [BankReconciliationController::class, 'reconcile'])
+    ->name('accounting.bank-reconciliation.reconcile');
+
+    Route::post('/accounting/bank-reconciliation/{bankReconciliation}/complete', [BankReconciliationController::class, 'complete'])
+    ->name('accounting.bank-reconciliation.complete');
 
     
 require __DIR__.'/auth.php';
