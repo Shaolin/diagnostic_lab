@@ -215,6 +215,32 @@
                     Account Ledger
                 </a>
 
+                {{-- Branch Income / Sales --}}
+<a href="{{ route('accounting.branch-income.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.branch-income.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📊</span>
+    Branch Income / Sales
+</a>
+{{-- Profit & Loss --}}
+<a href="{{ route('accounting.profit-loss.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.profit-loss.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📈</span>
+    Profit & Loss
+</a>
+
+{{-- Balance Sheet --}}
+<a href="{{ route('accounting.balance-sheet.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.balance-sheet.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📋</span>
+    Balance Sheet
+</a>
+
                 {{-- Petty Cash --}}
                 <a href="{{ route('accounting.petty-cash.funds.index') }}"
                    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition

@@ -6,9 +6,11 @@ use App\Http\Controllers\Accounting\PettyCashFundController;
 use App\Http\Controllers\Accounting\PettyCashTransactionController;
 use App\Http\Controllers\AccountsPayableController;
 use App\Http\Controllers\AccountsReceivableController;
+use App\Http\Controllers\BalanceSheetController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BankReconciliationController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\BranchIncomeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FixedAssetController;
@@ -21,6 +23,7 @@ use App\Http\Controllers\PatientController;
 use App\Http\Controllers\PatientTrackingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProfitLossController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ResultController;
 use App\Http\Controllers\SuperAdminController;
@@ -351,5 +354,15 @@ Route::post('/accounting/bank-reconciliation/{bankReconciliation}/reconcile', [B
     Route::post('/accounting/bank-reconciliation/{bankReconciliation}/complete', [BankReconciliationController::class, 'complete'])
     ->name('accounting.bank-reconciliation.complete');
 
+    Route::get('/accounting/branch-income', [BranchIncomeController::class, 'index'])
+    ->name('accounting.branch-income.index');
+
+
+Route::get('/accounting/profit-loss', [ProfitLossController::class, 'index'])
+    ->name('accounting.profit-loss.index');
+
+
+Route::get('/accounting/balance-sheet', [BalanceSheetController::class, 'index'])
+    ->name('accounting.balance-sheet.index');
     
 require __DIR__.'/auth.php';
