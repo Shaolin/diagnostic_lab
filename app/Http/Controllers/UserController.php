@@ -51,7 +51,13 @@ public function index(Request $request)
         ->paginate(10)
         ->withQueryString();
 
-  $roles = auth()->user()->isSuperAdmin() ? UserRole::cases() : [ UserRole::ADMIN, UserRole::STAFF, ]; 
+  $roles = auth()->user()->isSuperAdmin()
+    ? UserRole::cases()
+    : [
+        UserRole::ADMIN,
+        UserRole::ACCOUNTANT,
+        UserRole::STAFF,
+    ];
   return view('users.index', compact('users', 'roles'));
 }
 
@@ -62,26 +68,17 @@ public function index(Request $request)
 
 
 
-// public function create()
-// {
-//     $this->authorize('create', User::class);
 
-//     $roles = [
-//         UserRole::ADMIN,
-//         UserRole::STAFF,
-//     ];
-
-//     return view('users.create', compact('roles'));
-// }
 
 public function create()
 {
     $this->authorize('create', User::class);
 
-    $roles = [
-        UserRole::ADMIN,
-        UserRole::STAFF,
-    ];
+   $roles = [
+    UserRole::ADMIN,
+    UserRole::ACCOUNTANT,
+    UserRole::STAFF,
+];
 
     $branches = auth()->user()->laboratory->branches()
         ->where('is_active', true)
@@ -114,12 +111,7 @@ public function create()
     /**
      * Display the specified resource.
 //      */
-//     public function show(User $user)
-// {
-//     $this->authorize('view', $user);
 
-//     return view('users.show', compact('user'));
-// }
 
 public function show(User $user)
 {
@@ -135,26 +127,17 @@ public function show(User $user)
 
 
 
-// public function edit(User $user)
-// {
-//     $this->authorize('update', $user);
 
-//     $roles = [
-//         UserRole::ADMIN,
-//         UserRole::STAFF,
-//     ];
-
-//     return view('users.edit', compact('user', 'roles'));
-// }
 
 public function edit(User $user)
 {
     $this->authorize('update', $user);
 
-    $roles = [
-        UserRole::ADMIN,
-        UserRole::STAFF,
-    ];
+   $roles = [
+    UserRole::ADMIN,
+    UserRole::ACCOUNTANT,
+    UserRole::STAFF,
+];
 
     $branches = auth()->user()->laboratory->branches()
         ->where('is_active', true)

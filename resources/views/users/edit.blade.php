@@ -115,7 +115,8 @@
         </select>
     </div>
 
-    {{-- Branch --}}
+    
+{{-- Branch --}}
 <div>
     <label for="branch_id" class="mb-2 block text-sm font-medium text-slate-300">
         Branch
@@ -137,6 +138,10 @@
             </option>
         @endforeach
     </select>
+
+    <p id="branch-help" class="mt-1 text-xs text-slate-400 hidden">
+        Accountants have access to all branches.
+    </p>
 
     @error('branch_id')
         <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
@@ -218,4 +223,27 @@
 
         </div>
     </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const role = document.getElementById('role');
+        const branch = document.getElementById('branch_id');
+        const branchHelp = document.getElementById('branch-help');
+
+        function updateBranchField() {
+            if (role.value === 'accountant') {
+                branch.value = '';
+                branch.disabled = true;
+                branchHelp.classList.remove('hidden');
+            } else {
+                branch.disabled = false;
+                branchHelp.classList.add('hidden');
+            }
+        }
+
+        role.addEventListener('change', updateBranchField);
+
+        updateBranchField();
+    });
+</script>
 </x-app-layout>

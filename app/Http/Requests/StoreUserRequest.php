@@ -38,13 +38,14 @@ class StoreUserRequest extends FormRequest
                 'unique:users,email',
             ],
 
-            'role' => [
-                'required',
-                Rule::in([
-                    UserRole::ADMIN->value,
-                    UserRole::STAFF->value,
-                ]),
-            ],
+           'role' => [
+    'required',
+    Rule::in([
+        UserRole::ADMIN->value,
+        UserRole::ACCOUNTANT->value,
+        UserRole::STAFF->value,
+    ]),
+],
      'branch_id' => [
     'nullable',
     Rule::exists('branches', 'id')

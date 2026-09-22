@@ -106,6 +106,7 @@
 
 
                 {{-- Outstanding Balance --}}
+              @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())  
                 <div class="rounded-xl border border-slate-700 bg-slate-800 p-6 shadow-xl">
 
                     <div class="flex items-center justify-between">
@@ -129,6 +130,7 @@
                     </div>
 
                 </div>
+               @endif 
 
             </div>
 
@@ -182,7 +184,7 @@
 
                     </div>
 
-
+                  @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
                     {{-- Payments --}}
                     <div class="rounded-xl border border-slate-700 bg-slate-800 p-5">
 
@@ -195,6 +197,7 @@
                         </p>
 
                     </div>
+                 @endif
 
 
                     {{-- Results --}}
@@ -286,7 +289,7 @@
 
                     </a>
 
-
+                  @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
                     {{-- Record Payment --}}
                     <a
                         href="{{ route('payments.index') }}"
@@ -310,6 +313,8 @@
                         </div>
 
                     </a>
+
+                    @endif
 
 
                     {{-- Results --}}
@@ -488,7 +493,7 @@
 
                 </div>
 
-
+        @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
                 {{-- Recent Payments --}}
                 <div class="overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
 
@@ -607,6 +612,8 @@
                 </div>
 
             </div>
+
+            @endif
 
 
             {{-- ================================================================

@@ -1,7 +1,11 @@
 <?php
 
+use App\Http\Controllers\Accounting\AuditTrailController;
+use App\Http\Controllers\Accounting\BranchReportController;
+use App\Http\Controllers\Accounting\CashFlowController;
 use App\Http\Controllers\Accounting\InventoryItemController;
 use App\Http\Controllers\Accounting\InventoryStockController;
+use App\Http\Controllers\Accounting\MonthlyFinancialReportController;
 use App\Http\Controllers\Accounting\PettyCashFundController;
 use App\Http\Controllers\Accounting\PettyCashTransactionController;
 use App\Http\Controllers\AccountsPayableController;
@@ -28,6 +32,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ResultController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SuperAdminModuleController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierInvoiceController;
 use App\Http\Controllers\SupplierPaymentController;
 use App\Http\Controllers\TestRequestController;
@@ -226,6 +231,8 @@ Route::middleware(['auth', 'super_admin'])
 
     });
 
+    Route::middleware(['auth', 'accounting'])->group(function () {
+
     Route::get('/accounting/general-ledger', [GeneralLedgerController::class, 'index'])
     ->name('accounting.general-ledger');
     Route::get('/accounting/accounts-receivable', [AccountsReceivableController::class, 'index'])
@@ -348,6 +355,20 @@ Route::get('/accounting/bank-accounts/create', [BankAccountController::class, 'c
 
 Route::post('/accounting/bank-accounts', [BankAccountController::class, 'store'])
     ->name('accounting.bank-accounts.store');
+Route::get('/accounting/bank-accounts/{bankAccount}/edit', [BankAccountController::class, 'edit'])
+    ->name('accounting.bank-accounts.edit');
+
+Route::put('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'update'])
+    ->name('accounting.bank-accounts.update');
+
+Route::delete('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'destroy'])
+    ->name('accounting.bank-accounts.destroy');
+Route::get('/accounting/bank-accounts/{bankAccount}/correct-opening-balance', [BankAccountController::class, 'correctOpeningBalance'])
+    ->name('accounting.bank-accounts.correct-opening-balance');
+
+Route::put('/accounting/bank-accounts/{bankAccount}/correct-opening-balance', [BankAccountController::class, 'updateOpeningBalance'])
+    ->name('accounting.bank-accounts.update-opening-balance');
+
 Route::post('/accounting/bank-reconciliation/{bankReconciliation}/reconcile', [BankReconciliationController::class, 'reconcile'])
     ->name('accounting.bank-reconciliation.reconcile');
 
@@ -364,5 +385,52 @@ Route::get('/accounting/profit-loss', [ProfitLossController::class, 'index'])
 
 Route::get('/accounting/balance-sheet', [BalanceSheetController::class, 'index'])
     ->name('accounting.balance-sheet.index');
+
+Route::get('/accounting/cash-flow', [CashFlowController::class, 'index'])
+    ->name('accounting.cash-flow');
+
+Route::get(
+    '/accounting/monthly-financial-report',
+    [MonthlyFinancialReportController::class, 'index']
+)->name('accounting.monthly-financial-report');
+
+
+
+
+Route::get(
+    '/accounting/branch-reports',
+    [BranchReportController::class, 'index']
+)->name('accounting.branch-reports');
+
+
+
+Route::get(
+    '/accounting/audit-trail',
+    [AuditTrailController::class, 'index']
+)->name('accounting.audit-trail');
+
+});
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get('/suppliers', [SupplierController::class, 'index'])
+        ->name('suppliers.index');
+
+    Route::get('/suppliers/create', [SupplierController::class, 'create'])
+        ->name('suppliers.create');
+
+    Route::post('/suppliers', [SupplierController::class, 'store'])
+        ->name('suppliers.store');
+
+    Route::get('/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])
+        ->name('suppliers.edit');
+
+    Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])
+        ->name('suppliers.update');
+
+    Route::patch('/suppliers/{supplier}/toggle-status', [SupplierController::class, 'toggleStatus'])
+        ->name('suppliers.toggle-status');
+
+});
     
 require __DIR__.'/auth.php';

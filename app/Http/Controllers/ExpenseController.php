@@ -10,6 +10,7 @@ use Illuminate\View\View;
 use App\Services\JournalEntryService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Services\AuditLogService;
 
 class ExpenseController extends Controller
 {
@@ -205,6 +206,8 @@ public function store(Request $request)
                 'description' => $expense->payment_method . ' payment',
             ],
         ]);
+
+       
     });
 
     return redirect()

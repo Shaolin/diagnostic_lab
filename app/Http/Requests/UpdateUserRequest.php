@@ -39,14 +39,14 @@ class UpdateUserRequest extends FormRequest
                 'max:255',
                 Rule::unique('users', 'email')->ignore($user),
             ],
-
-            'role' => [
-                'required',
-                Rule::in([
-                    UserRole::ADMIN->value,
-                    UserRole::STAFF->value,
-                ]),
-            ],
+'role' => [
+    'required',
+    Rule::in([
+        UserRole::ADMIN->value,
+        UserRole::ACCOUNTANT->value,
+        UserRole::STAFF->value,
+    ]),
+],
             'branch_id' => [
     'nullable',
     Rule::exists('branches', 'id')

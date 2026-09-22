@@ -168,20 +168,32 @@
             </a>
 
             {{-- Payments --}}
+            @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
             <a href="{{ route('payments.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>💳</span>
                 Payments
             </a>
+            @endif
 
         </div>
     </div>
 
 
-    {{-- Accounting --}}
-    @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
 
+    {{-- Accounting --}}
+   @php
+    $accountingEnabled = \App\Models\LaboratoryModule::where('laboratory_id', auth()->user()->laboratory_id)
+        ->where('module', 'accounting')
+        ->where('enabled', true)
+        ->exists();
+@endphp
+
+@if(
+    (auth()->user()->isAdmin() || auth()->user()->isAccountant())
+    && $accountingEnabled
+)
         @php
             $accountingOpen = request()->routeIs('accounting.*');
         @endphp
@@ -241,6 +253,32 @@
     Balance Sheet
 </a>
 
+{{-- Cash Flow --}}
+<a href="{{ route('accounting.cash-flow') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.cash-flow') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>💵</span>
+    Cash Flow
+</a>
+
+{{-- Monthly Financial Reports --}}
+<a href="{{ route('accounting.monthly-financial-report') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.monthly-financial-report') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>📊</span>
+    Monthly Financial Reports
+</a>
+{{-- Branch Reports --}}
+<a href="{{ route('accounting.branch-reports') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.branch-reports') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+
+    <span>🏢</span>
+    Branch Reports
+</a>
+
                 {{-- Petty Cash --}}
                 <a href="{{ route('accounting.petty-cash.funds.index') }}"
                    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
@@ -255,6 +293,14 @@
     {{ request()->routeIs('accounting.inventory.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
     <span>📦</span>
     Inventory
+</a>
+
+{{-- Inventory Items --}}
+<a href="{{ route('accounting.inventory.items.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.inventory.items.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+    <span>🧪</span>
+    Inventory Items
 </a>
 
 {{-- Issue Stock --}}
@@ -303,6 +349,14 @@
                     Accounts Receivable
                 </a>
 
+                {{-- Suppliers --}}
+<a href="{{ route('suppliers.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('suppliers.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+    <span>🏢</span>
+    Suppliers
+</a>
+
                 {{-- Accounts Payable --}}
                 <a href="{{ route('accounting.accounts-payable') }}"
                    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
@@ -334,13 +388,15 @@
 
 
     {{-- Reports --}}
+
+    @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
     <a href="{{ route('reports.index') }}"
        class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
        {{ request()->routeIs('reports.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
         <span>📊</span>
         Reports
     </a>
-
+@endif
 
     {{-- Settings --}}
     <div class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-500">

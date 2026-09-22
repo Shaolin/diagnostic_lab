@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use App\Http\Middleware\EnsureAccountingAccess;
 
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     $middleware->alias([
         'admin' => AdminMiddleware::class,
          'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
+         'accounting' => EnsureAccountingAccess::class,
     ]);
 })
     ->withExceptions(function (Exceptions $exceptions): void {

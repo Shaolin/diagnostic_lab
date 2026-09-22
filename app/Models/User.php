@@ -78,6 +78,14 @@ public function branch(): BelongsTo
     }
 
     /**
+ * Determine if the user is an accountant.
+ */
+public function isAccountant(): bool
+{
+    return $this->role === UserRole::ACCOUNTANT;
+}
+
+    /**
      * Determine if the user is a staff member.
      */
     public function isStaff(): bool
@@ -132,4 +140,6 @@ public function verifiedResults(): HasMany
 {
     return $this->hasMany(Result::class, 'verified_by');
 }
+
+
 }

@@ -66,6 +66,11 @@
                                 <th class="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">
                                     Status
                                 </th>
+
+                                    <th class="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">
+    Actions
+</th>
+                               
                             </tr>
                         </thead>
 
@@ -94,6 +99,7 @@
                                     <td class="whitespace-nowrap px-5 py-4 text-right text-sm text-white">
                                         ₦{{ number_format((float) $bankAccount->opening_balance, 2) }}
                                     </td>
+                                    
 
                                     <td class="px-5 py-4 text-center">
 
@@ -108,13 +114,39 @@
                                         @endif
 
                                     </td>
+                                    <td class="px-5 py-4 text-center">
+    <div class="flex items-center justify-center gap-2">
+
+        <a href="{{ route('accounting.bank-accounts.edit', $bankAccount) }}"
+           class="rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white">
+            Edit
+        </a>
+        <a href="{{ route('accounting.bank-accounts.correct-opening-balance', $bankAccount) }}"
+   class="rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/10">
+    Correct Balance
+</a>
+
+        <form method="POST"
+              action="{{ route('accounting.bank-accounts.destroy', $bankAccount) }}"
+              onsubmit="return confirm('Are you sure you want to delete this bank account?');">
+            @csrf
+            @method('DELETE')
+
+            <button type="submit"
+                    class="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/10">
+                Delete
+            </button>
+        </form>
+
+    </div>
+</td>
 
                                 </tr>
 
                             @empty
 
                                 <tr>
-                                    <td colspan="6" class="px-5 py-12 text-center">
+                                    <td colspan="7" class="px-5 py-12 text-center">
 
                                         <div class="text-4xl">🏦</div>
 
