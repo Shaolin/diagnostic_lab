@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
     use Illuminate\Database\Eloquent\Relations\HasMany;
+    
 
 #[Fillable([
     'laboratory_id',
@@ -139,6 +140,19 @@ public function uploadedResults(): HasMany
 public function verifiedResults(): HasMany
 {
     return $this->hasMany(Result::class, 'verified_by');
+}
+
+public function permissions(): HasMany
+{
+    return $this->hasMany(UserPermission::class);
+}
+
+public function hasPermission(string $module): bool
+{
+    return $this->permissions()
+        ->where('module', $module)
+        ->where('enabled', true)
+        ->exists();
 }
 
 

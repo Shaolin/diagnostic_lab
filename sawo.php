@@ -1,3 +1,458 @@
+<?php
+
+namespace App\Http\Controllers;
+   use App\Models\User;
+use Illuminate\Http\Request;
+ use App\Enums\UserRole;
+ use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
+
+
+
+class UserController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     */
+
+
+    
+
+public function index(Request $request)
+{
+    $this->authorize('viewAny', User::class);
+   $users = User::query()
+    ->with('laboratory')
+
+    ->when(
+        ! auth()->user()->isSuperAdmin(),
+        function ($query) {
+            $query->where(
+                'laboratory_id',
+                auth()->user()->laboratory_id
+            );
+        }
+    )
+        ->when($request->filled('search'), function ($query) use ($request) {
+            $search = $request->search;
+
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        })
+        ->when($request->filled('role'), function ($query) use ($request) {
+            $query->where('role', $request->role);
+        })
+        ->when($request->filled('status'), function ($query) use ($request) {
+            $query->where('is_active', $request->boolean('status'));
+        })
+        ->latest()
+        ->paginate(10)
+        ->withQueryString();
+
+  $roles = auth()->user()->isSuperAdmin()
+    ? UserRole::cases()
+    : [
+        UserRole::ADMIN,
+        UserRole::ACCOUNTANT,
+        UserRole::STAFF,
+    ];
+  return view('users.index', compact('users', 'roles'));
+}
+
+    /**
+     * Show the form for creating a new resource.
+     */
+  
+
+
+
+
+
+public function create()
+{
+    $this->authorize('create', User::class);
+
+   $roles = [
+    UserRole::ADMIN,
+    UserRole::ACCOUNTANT,
+    UserRole::STAFF,
+];
+
+    $branches = auth()->user()->laboratory->branches()
+        ->where('is_active', true)
+        ->orderBy('name')
+        ->get();
+
+    return view('users.create', compact('roles', 'branches'));
+}
+
+
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(StoreUserRequest $request)
+{
+    $this->authorize('create', User::class);
+    $data = $request->validated();
+
+    // Always assign the authenticated user's laboratory
+    $data['laboratory_id'] = auth()->user()->laboratory_id;
+
+    User::create($data);
+
+    return redirect()
+        ->route('users.index')
+        ->with('success', 'User created successfully.');
+}
+
+    /**
+     * Display the specified resource.
+//      */
+
+
+public function show(User $user)
+{
+    $this->authorize('view', $user);
+
+    $user->load('branch');
+
+    return view('users.show', compact('user'));
+}
+    /**
+     * Show the form for editing the specified resource.
+     */
+
+
+
+
+
+public function edit(User $user)
+{
+    $this->authorize('update', $user);
+
+   $roles = [
+    UserRole::ADMIN,
+    UserRole::ACCOUNTANT,
+    UserRole::STAFF,
+];
+
+    $branches = auth()->user()->laboratory->branches()
+        ->where('is_active', true)
+        ->orderBy('name')
+        ->get();
+
+    return view('users.edit', compact('user', 'roles', 'branches'));
+}
+
+
+
+    /**
+     * Update the specified resource in storage.
+     */
+   public function update(UpdateUserRequest $request, User $user)
+{
+    $this->authorize('update', $user);
+
+    $data = $request->validated();
+
+    // Keep the existing password if no new password was provided
+    if (blank($data['password'])) {
+        unset($data['password']);
+    }
+
+    $user->update($data);
+
+    return redirect()
+        ->route('users.index')
+        ->with('success', 'User updated successfully.');
+}
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(User $user)
+{
+    $this->authorize('delete', $user);
+
+    $user->update([
+        'is_active' => false,
+    ]);
+
+    return redirect()
+        ->route('users.index')
+        ->with('success', 'User has been deactivated successfully.');
+}
+public function activate(User $user)
+{
+    $this->authorize('update', $user);
+
+    $user->update([
+        'is_active' => true,
+    ]);
+
+    return redirect()
+        ->route('users.index')
+        ->with('success', 'User has been activated successfully.');
+}
+}
+
+
+// user/edit.blade.php  
+<x-app-layout>
+    <x-slot name="header">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+            <div>
+                <h2 class="text-xl font-semibold text-white">
+                    Edit User
+                </h2>
+
+                <p class="mt-1 text-sm text-slate-400">
+                    Update this user's information.
+                </p>
+            </div>
+
+            <a href="{{ route('users.index') }}"
+               class="inline-flex items-center justify-center rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-slate-700">
+                ← Back to Users
+            </a>
+
+        </div>
+    </x-slot>
+
+    <div class="py-8 bg-slate-900 min-h-screen">
+        <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+
+            {{-- Validation Errors --}}
+            @if ($errors->any())
+    <div class="mb-6 rounded-lg border border-red-700 bg-red-900/30 px-4 py-3 text-red-300 shadow-sm">
+
+        <p class="font-semibold">
+            Please correct the following errors:
+        </p>
+
+        <ul class="mt-2 list-disc pl-5 text-sm">
+
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+
+        </ul>
+
+    </div>
+@endif
+
+            {{-- User Form --}}
+            <div class="rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
+
+   
+     <form action="{{ route('users.update', $user) }}" method="POST">
+    @csrf
+    @method('PUT')
+
+        
+
+        <div class="p-6">
+
+            {{-- Form Fields Here --}}
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+    {{-- Full Name --}}
+    <div>
+        <label for="name" class="mb-2 block text-sm font-medium text-slate-300">
+            Full Name
+        </label>
+
+        <input
+            type="text"
+            id="name"
+            name="name"
+            value="{{ old('name', $user->name) }}"
+            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
+            required
+        >
+    </div>
+
+    {{-- Email --}}
+    <div>
+        <label for="email" class="mb-2 block text-sm font-medium text-slate-300">
+            Email Address
+        </label>
+
+        <input
+            type="email"
+            id="email"
+            name="email"
+            value="{{ old('email', $user->email) }}"
+            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
+            required
+        >
+    </div>
+
+    {{-- Role --}}
+    <div>
+        <label for="role" class="mb-2 block text-sm font-medium text-slate-300">
+            Role
+        </label>
+
+        <select
+            id="role"
+            name="role"
+            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
+            required
+        >
+            <option value="">Select Role</option>
+
+            @foreach ($roles as $role)
+                <option
+                    value="{{ $role->value }}"
+                    @selected(old('role', $user->role->value) == $role->value)
+                >
+                    {{ $role->label() }}
+                </option>
+            @endforeach
+
+        </select>
+    </div>
+
+    
+{{-- Branch --}}
+<div>
+    <label for="branch_id" class="mb-2 block text-sm font-medium text-slate-300">
+        Branch
+    </label>
+
+    <select
+        id="branch_id"
+        name="branch_id"
+        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
+    >
+        <option value="">Select Branch</option>
+
+        @foreach ($branches as $branch)
+            <option
+                value="{{ $branch->id }}"
+                @selected(old('branch_id', $user->branch_id) == $branch->id)
+            >
+                {{ $branch->name }}
+            </option>
+        @endforeach
+    </select>
+
+    <p id="branch-help" class="mt-1 text-xs text-slate-400 hidden">
+        Accountants have access to all branches.
+    </p>
+
+    @error('branch_id')
+        <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+    @enderror
+</div>
+
+    {{-- Active --}}
+    <div class="flex items-end">
+        <label class="inline-flex items-center gap-3 text-slate-300">
+            <input
+                type="checkbox"
+                name="is_active"
+                value="1"
+                @checked(old('is_active', $user->is_active))
+                class="rounded border-slate-500 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+            >
+
+            Active User
+        </label>
+    </div>
+
+    {{-- Password --}}
+    <div>
+        <label for="password" class="mb-2 block text-sm font-medium text-slate-300">
+            Password
+        </label>
+
+        <input
+            type="password"
+            id="password"
+            name="password"
+            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
+            
+        >
+    </div>
+
+    {{-- Confirm Password --}}
+    <div>
+        <label for="password_confirmation" class="mb-2 block text-sm font-medium text-slate-300">
+            Confirm Password
+        </label>
+
+        <input
+            type="password"
+            id="password_confirmation"
+            name="password_confirmation"
+            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
+            
+        >
+        <p class="mt-2 text-sm text-slate-400">
+    Leave blank to keep the current password.
+</p>
+    </div>
+
+</div>
+
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-slate-700 p-6">
+
+            <a href="{{ route('users.index') }}"
+               class="rounded-md bg-slate-600 px-5 py-2 text-white hover:bg-slate-700">
+                Cancel
+            </a>
+
+            <button
+                type="submit"
+                class="rounded-md bg-indigo-600 px-5 py-2 text-white hover:bg-indigo-700">
+
+                Update User
+
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const role = document.getElementById('role');
+        const branch = document.getElementById('branch_id');
+        const branchHelp = document.getElementById('branch-help');
+
+        function updateBranchField() {
+            if (role.value === 'accountant') {
+                branch.value = '';
+                branch.disabled = true;
+                branchHelp.classList.remove('hidden');
+            } else {
+                branch.disabled = false;
+                branchHelp.classList.add('hidden');
+            }
+        }
+
+        role.addEventListener('change', updateBranchField);
+
+        updateBranchField();
+    });
+</script>
+</x-app-layout>
+
+// sidebar
+
 <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-700 overflow-y-auto">
 
     <!-- Logo -->
@@ -168,20 +623,32 @@
             </a>
 
             {{-- Payments --}}
+            @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
             <a href="{{ route('payments.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>💳</span>
                 Payments
             </a>
+            @endif
 
         </div>
     </div>
 
 
-    {{-- Accounting --}}
-    @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
 
+    {{-- Accounting --}}
+   @php
+    $accountingEnabled = \App\Models\LaboratoryModule::where('laboratory_id', auth()->user()->laboratory_id)
+        ->where('module', 'accounting')
+        ->where('enabled', true)
+        ->exists();
+@endphp
+
+@if(
+    (auth()->user()->isAdmin() || auth()->user()->isAccountant())
+    && $accountingEnabled
+)
         @php
             $accountingOpen = request()->routeIs('accounting.*');
         @endphp
@@ -283,6 +750,14 @@
     Inventory
 </a>
 
+{{-- Inventory Items --}}
+<a href="{{ route('accounting.inventory.items.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('accounting.inventory.items.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+    <span>🧪</span>
+    Inventory Items
+</a>
+
 {{-- Issue Stock --}}
 <a href="{{ route('accounting.inventory.stock-issues.create') }}"
     class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
@@ -329,6 +804,14 @@
                     Accounts Receivable
                 </a>
 
+                {{-- Suppliers --}}
+<a href="{{ route('suppliers.index') }}"
+   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+   {{ request()->routeIs('suppliers.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+    <span>🏢</span>
+    Suppliers
+</a>
+
                 {{-- Accounts Payable --}}
                 <a href="{{ route('accounting.accounts-payable') }}"
                    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
@@ -360,13 +843,15 @@
 
 
     {{-- Reports --}}
+
+    @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
     <a href="{{ route('reports.index') }}"
        class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
        {{ request()->routeIs('reports.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
         <span>📊</span>
         Reports
     </a>
-
+@endif
 
     {{-- Settings --}}
     <div class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-500">
@@ -381,400 +866,3 @@
 
 
 </aside>
-
-
-<?php
-
-use App\Http\Controllers\Accounting\AuditTrailController;
-use App\Http\Controllers\Accounting\BranchReportController;
-use App\Http\Controllers\Accounting\CashFlowController;
-use App\Http\Controllers\Accounting\InventoryItemController;
-use App\Http\Controllers\Accounting\InventoryStockController;
-use App\Http\Controllers\Accounting\MonthlyFinancialReportController;
-use App\Http\Controllers\Accounting\PettyCashFundController;
-use App\Http\Controllers\Accounting\PettyCashTransactionController;
-use App\Http\Controllers\AccountsPayableController;
-use App\Http\Controllers\AccountsReceivableController;
-use App\Http\Controllers\BalanceSheetController;
-use App\Http\Controllers\BankAccountController;
-use App\Http\Controllers\BankReconciliationController;
-use App\Http\Controllers\BranchController;
-use App\Http\Controllers\BranchIncomeController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ExpenseController;
-use App\Http\Controllers\FixedAssetController;
-use App\Http\Controllers\FixedAssetDepreciationController;
-use App\Http\Controllers\GeneralLedgerController;
-use App\Http\Controllers\InventoryStockIssueController;
-use App\Http\Controllers\InventoryStockMovementController;
-use App\Http\Controllers\LaboratoryController;
-use App\Http\Controllers\PatientController;
-use App\Http\Controllers\PatientTrackingController;
-use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ProfitLossController;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\ResultController;
-use App\Http\Controllers\SuperAdminController;
-use App\Http\Controllers\SuperAdminModuleController;
-use App\Http\Controllers\SupplierInvoiceController;
-use App\Http\Controllers\SupplierPaymentController;
-use App\Http\Controllers\TestRequestController;
-use App\Http\Controllers\TestRequestItemController;
-use App\Http\Controllers\TestTypeController;
-use App\Http\Controllers\TrialBalanceController;
-use App\Http\Controllers\UserController;
-use Illuminate\Support\Facades\Route;
-
-// Route::get('/', function () {
-//     return view('welcome');
-// });
-
-Route::get('/', function () {
-    return view('welcome');
-})->name('home');
-
-Route::get('/track-result', [PatientTrackingController::class, 'index'])
-    ->name('patient.track');
-
-Route::get('/track-result/search', [PatientTrackingController::class, 'search'])
-    ->name('patient.track.search');
-
-Route::get('/track-result/{trackingCode}/result/{result}/download',
-    [PatientTrackingController::class, 'download'])
-    ->name('patient.result.download');
-
- Route::get(
-    '/track-result/{trackingCode}/result/{result}/view',
-    [PatientTrackingController::class, 'view']
-)->name('patient.result.view');
-
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-
-Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth'])
-    ->name('dashboard');
-
-
-
-
-
-Route::middleware('auth')->group(function () {
-
-    // Profile
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
-    // Laboratories
-    Route::resource('laboratories', LaboratoryController::class);
-
-    // Branches
-    Route::resource('branches', BranchController::class);
-
-    // Users (Admin only)
-    Route::middleware('admin')->group(function () {
-        Route::resource('users', UserController::class);
-    });
-
-    // Patients
-    Route::resource('patients', PatientController::class)
-        ->except('destroy');
-
-    Route::patch(
-        'patients/{patient}/toggle-status',
-        [PatientController::class, 'toggleStatus']
-    )->name('patients.toggle-status');
-
- Route::resource('test-types', TestTypeController::class)
-    ->except(['destroy']);
-
-// Test types
-
-    Route::patch(
-    'test-types/{test_type}/activate',
-    [TestTypeController::class, 'activate']
-)->name('test-types.activate');
-
-Route::patch(
-    'test-types/{test_type}/deactivate',
-    [TestTypeController::class, 'deactivate']
-)->name('test-types.deactivate');
-
-});
-
-// Test Requests
-
- Route::resource('test-requests', TestRequestController::class);
-
-
-Route::prefix('test-request-items')->name('test-request-items.')->group(function () {
-
-    Route::patch('{testRequestItem}/collect-sample', [TestRequestItemController::class, 'collectSample'])
-        ->name('collect-sample');
-
-    Route::patch('{testRequestItem}/start', [TestRequestItemController::class, 'start'])
-        ->name('start');
-
-    Route::patch('{testRequestItem}/complete', [TestRequestItemController::class, 'complete'])
-        ->name('complete');
-
-    Route::patch('{testRequestItem}/result-ready', [TestRequestItemController::class, 'markResultReady'])
-        ->name('result-ready');
-
-    Route::patch('{testRequestItem}/result-sent', [TestRequestItemController::class, 'markResultSent'])
-        ->name('result-sent');
-});
-
-// Results
-
-Route::prefix('results')->name('results.')->group(function () {
-
-// Results listing
-Route::get(
-    '/',
-    [ResultController::class, 'index']
-)->name('index');
-
-    // Upload result
-    Route::get(
-        'test-request-items/{testRequestItem}/create',
-        [ResultController::class, 'create']
-    )->name('create');
-
-    Route::post(
-        'test-request-items/{testRequestItem}',
-        [ResultController::class, 'store']
-    )->name('store');
-
-    // Download result
-    Route::get(
-        '{result}/download',
-        [ResultController::class, 'download']
-    )->name('download');
-
-    // Verify result
-    Route::patch(
-        '{result}/verify',
-        [ResultController::class, 'verify']
-    )->name('verify');
-
-    // Replace result
-    Route::get(
-        '{result}/edit',
-        [ResultController::class, 'edit']
-    )->name('edit');
-
-    Route::put(
-        '{result}',
-        [ResultController::class, 'update']
-    )->name('update');
-});
-
-
-Route::middleware(['auth'])
-    ->prefix('payments')
-    ->name('payments.')
-    ->group(function () {
-
-        Route::get('/', [PaymentController::class, 'index'])
-            ->name('index');
-
-        Route::get('/create/{testRequest}', [PaymentController::class, 'create'])
-            ->name('create');
-
-        Route::post('/{testRequest}', [PaymentController::class, 'store'])
-            ->name('store');
-
-        Route::get('/{payment}', [PaymentController::class, 'show'])
-            ->name('show');
-    });
-
-    Route::get('/reports', [ReportController::class, 'index'])
-    ->name('reports.index');
-
-
-
-
-Route::middleware(['auth', 'super_admin'])
-    ->prefix('super-admin')
-    ->name('super-admin.')
-    ->group(function () {
-
-        Route::get('/', [SuperAdminController::class, 'index'])
-            ->name('dashboard');
-
-        Route::get('/laboratories/{laboratory}/modules', [SuperAdminModuleController::class, 'edit'])
-            ->name('modules.edit');
-
-        Route::put('/laboratories/{laboratory}/modules', [SuperAdminModuleController::class, 'update'])
-            ->name('modules.update');
-
-    });
-
-    Route::get('/accounting/general-ledger', [GeneralLedgerController::class, 'index'])
-    ->name('accounting.general-ledger');
-    Route::get('/accounting/accounts-receivable', [AccountsReceivableController::class, 'index'])
-    ->name('accounting.accounts-receivable');
-    Route::get('/accounting/accounts-receivable/{testRequest}', [AccountsReceivableController::class, 'show'])
-    ->name('accounting.accounts-receivable.show');
-    Route::get('/accounting/accounts-payable', [AccountsPayableController::class, 'index'])
-    ->name('accounting.accounts-payable');
-
-    Route::get('/accounting/accounts-payable/create', [SupplierInvoiceController::class, 'create'])
-    ->name('accounting.accounts-payable.create');
-
-Route::post('/accounting/accounts-payable', [SupplierInvoiceController::class, 'store'])
-    ->name('accounting.accounts-payable.store');
-Route::get('/accounting/accounts-payable/{supplierInvoice}', [SupplierInvoiceController::class, 'show'])
-    ->name('accounting.accounts-payable.show');
-    Route::get('/accounting/accounts-payable/{supplierInvoice}/payment', [SupplierPaymentController::class, 'create'])
-    ->name('accounting.accounts-payable.payment.create');
-    Route::post('/accounting/accounts-payable/{supplierInvoice}/payment', [SupplierPaymentController::class, 'store'])
-    ->name('accounting.accounts-payable.payment.store');
-   
-
-Route::get('/accounting/trial-balance', [TrialBalanceController::class, 'index'])
-    ->name('accounting.trial-balance');
-
-
-
-Route::get('/accounting/expenses', [ExpenseController::class, 'index'])
-    ->name('accounting.expenses');
-
-Route::get('/accounting/expenses/create', [ExpenseController::class, 'create'])
-    ->name('accounting.expenses.create');
-
-Route::post('/accounting/expenses', [ExpenseController::class, 'store'])
-    ->name('accounting.expenses.store');
-Route::prefix('accounting/petty-cash')
-    ->name('accounting.petty-cash.')
-    ->group(function () {
-        Route::get('/funds', [PettyCashFundController::class, 'index'])
-            ->name('funds.index');
-
-        Route::get('/funds/create', [PettyCashFundController::class, 'create'])
-            ->name('funds.create');
-
-        Route::post('/funds', [PettyCashFundController::class, 'store'])
-            ->name('funds.store');
-            Route::get('/funds/{pettyCashFund}/transactions', [PettyCashTransactionController::class, 'index'])
-    ->name('transactions.index');
-
-Route::get('/funds/{pettyCashFund}/transactions/create', [PettyCashTransactionController::class, 'create'])
-    ->name('transactions.create');
-
-Route::post('/funds/{pettyCashFund}/transactions', [PettyCashTransactionController::class, 'store'])
-    ->name('transactions.store');
-    });
-
-Route::prefix('accounting/inventory')
-    ->name('accounting.inventory.')
-    ->group(function () {
-
-        Route::get('/items', [InventoryItemController::class, 'index'])
-            ->name('items.index');
-
-        Route::get('/items/create', [InventoryItemController::class, 'create'])
-            ->name('items.create');
-
-        Route::post('/items', [InventoryItemController::class, 'store'])
-            ->name('items.store');
-            
-          Route::get('/stocks', [InventoryStockController::class, 'index'])
-            ->name('stocks.index');
-
-        Route::get('/stocks/create', [InventoryStockController::class, 'create'])
-            ->name('stocks.create');
-
-        Route::post('/stocks', [InventoryStockController::class, 'store'])
-            ->name('stocks.store');
-    });   
-  Route::get('/accounting/inventory/stock-issues/create', [InventoryStockIssueController::class, 'create'])
-    ->name('accounting.inventory.stock-issues.create');
-
-Route::post('/accounting/inventory/stock-issues', [InventoryStockIssueController::class, 'store'])
-    ->name('accounting.inventory.stock-issues.store');   
-    
-Route::get('/accounting/inventory/stock-movements', [InventoryStockMovementController::class, 'index'])
-    ->name('accounting.inventory.stock-movements.index');    
-
-    Route::get('/accounting/fixed-assets', [FixedAssetController::class, 'index'])
-    ->name('accounting.fixed-assets.index');
-    Route::get('/accounting/fixed-assets/create', [FixedAssetController::class, 'create'])
-    ->name('accounting.fixed-assets.create');
-
-Route::post('/accounting/fixed-assets', [FixedAssetController::class, 'store'])
-    ->name('accounting.fixed-assets.store');
-Route::get('/accounting/fixed-assets/depreciation/create', [FixedAssetDepreciationController::class, 'create'])
-    ->name('accounting.fixed-assets.depreciation.create');
-
-Route::post('/accounting/fixed-assets/depreciation', [FixedAssetDepreciationController::class, 'store'])
-    ->name('accounting.fixed-assets.depreciation.store');
-
-Route::get('/accounting/bank-reconciliation', [BankReconciliationController::class, 'index'])
-    ->name('accounting.bank-reconciliation.index');
-
-Route::get('/accounting/bank-reconciliation/create', [BankReconciliationController::class, 'create'])
-    ->name('accounting.bank-reconciliation.create');
-
-Route::post('/accounting/bank-reconciliation', [BankReconciliationController::class, 'store'])
-    ->name('accounting.bank-reconciliation.store');
-
-Route::get('/accounting/bank-reconciliation/{bankReconciliation}', [BankReconciliationController::class, 'show'])
-    ->name('accounting.bank-reconciliation.show');
-
-
-
-Route::get('/accounting/bank-accounts', [BankAccountController::class, 'index'])
-    ->name('accounting.bank-accounts.index');
-
-Route::get('/accounting/bank-accounts/create', [BankAccountController::class, 'create'])
-    ->name('accounting.bank-accounts.create');
-
-Route::post('/accounting/bank-accounts', [BankAccountController::class, 'store'])
-    ->name('accounting.bank-accounts.store');
-Route::post('/accounting/bank-reconciliation/{bankReconciliation}/reconcile', [BankReconciliationController::class, 'reconcile'])
-    ->name('accounting.bank-reconciliation.reconcile');
-
-    Route::post('/accounting/bank-reconciliation/{bankReconciliation}/complete', [BankReconciliationController::class, 'complete'])
-    ->name('accounting.bank-reconciliation.complete');
-
-    Route::get('/accounting/branch-income', [BranchIncomeController::class, 'index'])
-    ->name('accounting.branch-income.index');
-
-
-Route::get('/accounting/profit-loss', [ProfitLossController::class, 'index'])
-    ->name('accounting.profit-loss.index');
-
-
-Route::get('/accounting/balance-sheet', [BalanceSheetController::class, 'index'])
-    ->name('accounting.balance-sheet.index');
-
-Route::get('/accounting/cash-flow', [CashFlowController::class, 'index'])
-    ->name('accounting.cash-flow');
-
-Route::get(
-    '/accounting/monthly-financial-report',
-    [MonthlyFinancialReportController::class, 'index']
-)->name('accounting.monthly-financial-report');
-
-
-
-
-Route::get(
-    '/accounting/branch-reports',
-    [BranchReportController::class, 'index']
-)->name('accounting.branch-reports');
-
-
-
-Route::get(
-    '/accounting/audit-trail',
-    [AuditTrailController::class, 'index']
-)->name('accounting.audit-trail');
-    
-require __DIR__.'/auth.php';

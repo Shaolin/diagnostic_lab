@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
  use App\Enums\UserRole;
  use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
+use App\Models\UserPermission;
+
 
 
 
@@ -133,18 +135,28 @@ public function edit(User $user)
 {
     $this->authorize('update', $user);
 
-   $roles = [
-    UserRole::ADMIN,
-    UserRole::ACCOUNTANT,
-    UserRole::STAFF,
-];
+    $roles = [
+        UserRole::ADMIN,
+        UserRole::ACCOUNTANT,
+        UserRole::STAFF,
+    ];
 
     $branches = auth()->user()->laboratory->branches()
         ->where('is_active', true)
         ->orderBy('name')
         ->get();
 
-    return view('users.edit', compact('user', 'roles', 'branches'));
+    $permissions = $user->permissions()
+        ->where('enabled', true)
+        ->pluck('module')
+        ->toArray();
+
+    return view('users.edit', compact(
+        'user',
+        'roles',
+        'branches',
+        'permissions'
+    ));
 }
 
 
@@ -158,12 +170,27 @@ public function edit(User $user)
 
     $data = $request->validated();
 
-    // Keep the existing password if no new password was provided
     if (blank($data['password'])) {
         unset($data['password']);
     }
 
     $user->update($data);
+
+    /*
+     * Save user permissions.
+     *
+     * Only the modules submitted by the form will be enabled.
+     * Any previously enabled module that is no longer checked
+     * will be disabled.
+     */
+    $selectedPermissions = $request->input('permissions', []);
+
+    foreach (UserPermission::MODULES as $module) {
+        $user->permissions()->updateOrCreate(
+            ['module' => $module],
+            ['enabled' => in_array($module, $selectedPermissions)]
+        );
+    }
 
     return redirect()
         ->route('users.index')

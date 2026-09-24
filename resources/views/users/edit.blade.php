@@ -149,6 +149,7 @@
 </div>
 
     {{-- Active --}}
+        {{-- Active --}}
     <div class="flex items-end">
         <label class="inline-flex items-center gap-3 text-slate-300">
             <input
@@ -162,6 +163,97 @@
             Active User
         </label>
     </div>
+
+    {{-- Permissions --}}
+    <div class="md:col-span-2 border-t border-slate-700 pt-6 mt-2">
+
+        <h3 class="text-lg font-semibold text-white mb-2">
+            User Permissions
+        </h3>
+
+        <p class="text-sm text-slate-400 mb-5">
+            Select the areas this user is allowed to access.
+        </p>
+
+        {{-- Laboratory Operations --}}
+        <div class="mb-6">
+
+            <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">
+                Laboratory Operations
+            </h4>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                @foreach([
+                    'patients' => 'Patients',
+                    'test_types' => 'Test Types',
+                    'test_requests' => 'Test Requests',
+                    'results' => 'Results',
+                    'payments' => 'Payments',
+                ] as $module => $label)
+
+                    <label class="flex items-center gap-3 p-3 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer">
+
+                        <input
+                            type="checkbox"
+                            name="permissions[]"
+                            value="{{ $module }}"
+                            {{ in_array($module, old('permissions', $permissions ?? [])) ? 'checked' : '' }}
+                            class="rounded border-slate-500 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+                        >
+
+                        <span class="text-sm text-slate-200">
+                            {{ $label }}
+                        </span>
+
+                    </label>
+
+                @endforeach
+
+            </div>
+
+        </div>
+
+        {{-- Laboratory Management --}}
+        <div>
+
+            <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">
+                Laboratory Management
+            </h4>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                @foreach([
+                    'laboratories' => 'Laboratories',
+                    'users' => 'Users',
+                    'branches' => 'Branches',
+                ] as $module => $label)
+
+                    <label class="flex items-center gap-3 p-3 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer">
+
+                        <input
+                            type="checkbox"
+                            name="permissions[]"
+                            value="{{ $module }}"
+                            {{ in_array($module, old('permissions', $permissions ?? [])) ? 'checked' : '' }}
+                            class="rounded border-slate-500 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+                        >
+
+                        <span class="text-sm text-slate-200">
+                            {{ $label }}
+                        </span>
+
+                    </label>
+
+                @endforeach
+
+            </div>
+
+        </div>
+
+    </div>
+
+    
 
     {{-- Password --}}
     <div>

@@ -46,7 +46,15 @@
 
 
     {{-- Laboratory Management --}}
-    @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+    
+
+    @if(
+    auth()->user()->isSuperAdmin()
+    || auth()->user()->isAdmin()
+    || auth()->user()->hasPermission('laboratories')
+    || auth()->user()->hasPermission('users')
+    || auth()->user()->hasPermission('branches')
+)
 
         @php
             $managementOpen = request()->routeIs('laboratories.*')
@@ -75,29 +83,43 @@
 
             <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
 
-                {{-- Laboratories --}}
-                <a href="{{ route('laboratories.index') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('laboratories.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>🏥</span>
-                    Laboratories
-                </a>
+                
+             {{-- Laboratories --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin() || auth()->user()->hasPermission('laboratories'))
 
-                {{-- Users --}}
-                <a href="{{ route('users.index') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('users.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>👤</span>
-                    Users
-                </a>
+    <a href="{{ route('laboratories.index') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+       {{ request()->routeIs('laboratories.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+        <span>🏥</span>
+        Laboratories
+    </a>
 
-                {{-- Branches --}}
-                <a href="{{ route('branches.index') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('branches.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>🏢</span>
-                    Branches
-                </a>
+@endif
+                
+              {{-- Users --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin() || auth()->user()->hasPermission('users'))
+
+    <a href="{{ route('users.index') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+       {{ request()->routeIs('users.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+        <span>👤</span>
+        Users
+    </a>
+
+@endif
+
+                
+               {{-- Branches --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin() || auth()->user()->hasPermission('branches'))
+
+    <a href="{{ route('branches.index') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+       {{ request()->routeIs('branches.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+        <span>🏢</span>
+        Branches
+    </a>
+
+@endif
 
             </div>
         </div>
@@ -136,30 +158,57 @@
         <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
 
             {{-- Patients --}}
+              @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('patients'))
             <a href="{{ route('patients.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('patients.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>🩺</span>
                 Patients
             </a>
+            @endif
+          
+    
+
 
             {{-- Test Types --}}
+        @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('test_types'))
             <a href="{{ route('test-types.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('test-types.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>🧪</span>
                 Test Types
             </a>
+        @endif
+
+            
+
+   
+
+    {{-- existing Test Requests link --}}
+
+
+
 
             {{-- Test Requests --}}
+
+          @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('test_requests'))
             <a href="{{ route('test-requests.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('test-requests.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>🧾</span>
                 Test Requests
             </a>
+        @endif
+
+
+      
+
+   
+
+
 
             {{-- Results --}}
+          @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('results'))    
             <a href="{{ route('results.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('results.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
@@ -167,15 +216,25 @@
                 Results
             </a>
 
+            @endif
+
             {{-- Payments --}}
-            @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
-            <a href="{{ route('payments.index') }}"
+
+@if(
+    auth()->user()->isAdmin()
+    || auth()->user()->isAccountant()
+    || auth()->user()->hasPermission('payments')
+)
+
+     <a href="{{ route('payments.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>💳</span>
                 Payments
             </a>
-            @endif
+
+@endif
+
 
         </div>
     </div>
