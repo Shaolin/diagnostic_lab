@@ -46,6 +46,23 @@ use Illuminate\Support\Facades\Route;
 //     return view('welcome');
 // });
 
+
+// test
+
+Route::get('/test-domain', function (Illuminate\Http\Request $request) {
+    $lab = $request->attributes->get('laboratory');
+
+    if (!$lab) {
+        return 'No laboratory resolved';
+    }
+
+    return [
+        'id' => $lab->id,
+        'name' => $lab->name,
+        'custom_domain' => $lab->custom_domain,
+    ];
+})->middleware('resolve.laboratory');
+
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
@@ -121,6 +138,8 @@ Route::patch(
 )->name('test-types.deactivate');
 
 });
+
+
 
 // Test Requests
 

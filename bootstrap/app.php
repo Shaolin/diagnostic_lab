@@ -14,11 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-    $middleware->alias([
-        'admin' => AdminMiddleware::class,
-         'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
-         'accounting' => EnsureAccountingAccess::class,
-    ]);
+   $middleware->alias([
+    'admin' => AdminMiddleware::class,
+    'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
+    'accounting' => EnsureAccountingAccess::class,
+    'resolve.laboratory' => \App\Http\Middleware\ResolveLaboratoryFromDomain::class,
+]);
 })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
