@@ -1,35 +1,48 @@
 <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-700 overflow-y-auto">
 
-    <!-- Logo -->
-    <div class="flex h-16 items-center border-b border-slate-700 px-6">
+  {{-- Laboratory Branding --}}
+@php
+    $currentLaboratory = auth()->user()->laboratory;
+@endphp
 
-        <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
+<div class="flex min-h-16 items-center border-b border-slate-700 px-6 py-3">
+    <a href="{{ route('dashboard') }}" class="flex w-full items-center gap-3">
 
-            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-xl font-bold text-white">
-                🧪
-            </div>
+        {{-- Laboratory Logo --}}
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center">
+            @if($currentLaboratory?->logo_url)
+                <img
+                    src="{{ $currentLaboratory->logo_url }}"
+                    alt="{{ $currentLaboratory->name }}"
+                    class="h-10 w-10 rounded-lg object-cover"
+                >
+            @else
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-xl font-bold text-white">
+                    🧪
+                </div>
+            @endif
+        </div>
 
-            <div>
-                <h1 class="text-lg font-bold text-white">
-                    Diagnostic Lab
-                </h1>
+        {{-- Laboratory Name --}}
+        <div class="min-w-0 flex-1">
+            <h1 class="text-lg font-bold leading-tight text-white break-words">
+                {{ $currentLaboratory?->name ?? 'Diagnostic Lab' }}
+            </h1>
 
-               <p class="text-xs text-slate-400">
+            <p class="mt-1 text-xs text-slate-400">
+                @if(auth()->user()->isSuperAdmin())
+                    Super Admin
+                @elseif(auth()->user()->isAdmin())
+                    Laboratory Administrator
+                @else
+                    Staff
+                @endif
+            </p>
+        </div>
 
-    @if(auth()->user()->isSuperAdmin())
-        Super Admin
-    @elseif(auth()->user()->isAdmin())
-        Laboratory Administrator
-    @else
-        Staff
-    @endif
-
-</p>
-            </div>
-
-        </a>
-
-    </div>
+    </a>
+</div>
+   
 
     
   

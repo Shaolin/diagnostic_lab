@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Laboratory;
-
+use Illuminate\Support\Facades\Storage;
 class LaboratoryController extends Controller
 {
     
@@ -137,12 +137,18 @@ public function update(Request $request, Laboratory $laboratory)
     $validated['subdomain'] = strtolower($validated['subdomain']);
 
     // Upload a new logo if one was provided.
-    if ($request->hasFile('logo')) {
-        $validated['logo'] = $request->file('logo')->store('laboratories', 'public');
+  if ($request->hasFile('logo')) {
+    $file = $request->file('logo');
 
-        // Later, we can delete the old logo here if desired.
-    }
+    $filename = $file->hashName();
 
+    Storage::disk('public')->put(
+        'laboratories/' . $filename,
+        file_get_contents($file->getPathname())
+    );
+
+    $validated['logo'] = 'laboratories/' . $filename;
+}
     // Handle checkbox value.
     $validated['is_active'] = $request->boolean('is_active');
 

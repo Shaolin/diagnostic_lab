@@ -1,4 +1,5 @@
 
+
 <div class="rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
 
     <div class="p-6">
@@ -12,11 +13,11 @@
                 </label>
 
                 <input
-                   type="text"
-                   id="name"
-                   name="name"
-                   value="{{ old('name', $laboratory->name ?? '') }}"
-                   class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    type="text"
+                    id="name"
+                    name="name"
+                    value="{{ old('name', $laboratory->name ?? '') }}"
+                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
 
                 @error('name')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -42,33 +43,39 @@
             </div>
 
             {{-- Logo --}}
-            {{-- <div>
+            <div>
                 <label for="logo" class="block text-sm font-medium text-slate-300">
-                    Logo
+                    Laboratory Logo
                 </label>
 
                 <input
                     type="file"
                     id="logo"
                     name="logo"
-                    
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
                     class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-white hover:file:bg-blue-700">
+
+                <p class="mt-1 text-xs text-slate-400">
+                    PNG, JPG or WEBP. Recommended: square image.
+                </p>
 
                 @error('logo')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
 
-                @isset($laboratory)
-                    @if($laboratory->logo_url)
-                        <div class="mt-3">
-                            <img
-                                src="{{ $laboratory->logo_url }}"
-                                alt="{{ $laboratory->name }}"
-                                class="h-20 w-20 rounded object-cover">
-                        </div>
-                    @endif
-                @endisset
-            </div> --}}
+                @if(isset($laboratory) && $laboratory->logo_url)
+                    <div class="mt-3">
+                        <p class="mb-2 text-xs text-slate-400">
+                            Current Logo
+                        </p>
+
+                        <img
+                            src="{{ $laboratory->logo_url }}"
+                            alt="{{ $laboratory->name }}"
+                            class="h-20 w-20 rounded-lg border border-slate-600 object-cover">
+                    </div>
+                @endif
+            </div>
 
             {{-- Phone --}}
             <div>
@@ -116,7 +123,6 @@
                     type="text"
                     id="country"
                     name="country"
-                    
                     value="{{ old('country', $laboratory->country ?? 'Nigeria') }}"
                     class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
 
@@ -171,7 +177,6 @@
                     type="text"
                     id="timezone"
                     name="timezone"
-                    
                     value="{{ old('timezone', $laboratory->timezone ?? 'Africa/Lagos') }}"
                     class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
 
@@ -180,7 +185,7 @@
                 @enderror
             </div>
 
-        </div> 
+        </div>
 
         {{-- Address --}}
         <div class="mt-6">
@@ -192,7 +197,7 @@
                 id="address"
                 name="address"
                 rows="3"
-                class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">{{ old('address', $laboratory->address ?? '') }}</textarea>
+                class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-blue-500">{{ old('address', $laboratory->address ?? '') }}</textarea>
 
             @error('address')
                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -207,7 +212,6 @@
                     type="checkbox"
                     name="is_active"
                     value="1"
-                    
                     class="rounded border-slate-600 bg-slate-900 text-blue-600 focus:ring-blue-500"
                     {{ old('is_active', $laboratory->is_active ?? true) ? 'checked' : '' }}>
 
@@ -220,19 +224,18 @@
 
     </div>
 
-    
+    {{-- Buttons --}}
     <div class="flex justify-end gap-3 border-t border-slate-700 bg-slate-900 px-6 py-4">
 
-        <a href="{{ route('laboratories.index') }}"
-           class="rounded-md bg-slate-600 px-4 py-2 text-white hover:bg-slate-700">
-           
+        <a
+            href="{{ route('laboratories.index') }}"
+            class="rounded-md bg-slate-600 px-4 py-2 text-white hover:bg-slate-700">
             Cancel
         </a>
 
         <button
             type="submit"
             class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-           
             Save Laboratory
         </button>
 

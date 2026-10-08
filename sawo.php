@@ -1,458 +1,3 @@
-<?php
-
-namespace App\Http\Controllers;
-   use App\Models\User;
-use Illuminate\Http\Request;
- use App\Enums\UserRole;
- use App\Http\Requests\StoreUserRequest;
-use App\Http\Requests\UpdateUserRequest;
-
-
-
-class UserController extends Controller
-{
-    /**
-     * Display a listing of the resource.
-     */
-
-
-    
-
-public function index(Request $request)
-{
-    $this->authorize('viewAny', User::class);
-   $users = User::query()
-    ->with('laboratory')
-
-    ->when(
-        ! auth()->user()->isSuperAdmin(),
-        function ($query) {
-            $query->where(
-                'laboratory_id',
-                auth()->user()->laboratory_id
-            );
-        }
-    )
-        ->when($request->filled('search'), function ($query) use ($request) {
-            $search = $request->search;
-
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        })
-        ->when($request->filled('role'), function ($query) use ($request) {
-            $query->where('role', $request->role);
-        })
-        ->when($request->filled('status'), function ($query) use ($request) {
-            $query->where('is_active', $request->boolean('status'));
-        })
-        ->latest()
-        ->paginate(10)
-        ->withQueryString();
-
-  $roles = auth()->user()->isSuperAdmin()
-    ? UserRole::cases()
-    : [
-        UserRole::ADMIN,
-        UserRole::ACCOUNTANT,
-        UserRole::STAFF,
-    ];
-  return view('users.index', compact('users', 'roles'));
-}
-
-    /**
-     * Show the form for creating a new resource.
-     */
-  
-
-
-
-
-
-public function create()
-{
-    $this->authorize('create', User::class);
-
-   $roles = [
-    UserRole::ADMIN,
-    UserRole::ACCOUNTANT,
-    UserRole::STAFF,
-];
-
-    $branches = auth()->user()->laboratory->branches()
-        ->where('is_active', true)
-        ->orderBy('name')
-        ->get();
-
-    return view('users.create', compact('roles', 'branches'));
-}
-
-
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreUserRequest $request)
-{
-    $this->authorize('create', User::class);
-    $data = $request->validated();
-
-    // Always assign the authenticated user's laboratory
-    $data['laboratory_id'] = auth()->user()->laboratory_id;
-
-    User::create($data);
-
-    return redirect()
-        ->route('users.index')
-        ->with('success', 'User created successfully.');
-}
-
-    /**
-     * Display the specified resource.
-//      */
-
-
-public function show(User $user)
-{
-    $this->authorize('view', $user);
-
-    $user->load('branch');
-
-    return view('users.show', compact('user'));
-}
-    /**
-     * Show the form for editing the specified resource.
-     */
-
-
-
-
-
-public function edit(User $user)
-{
-    $this->authorize('update', $user);
-
-   $roles = [
-    UserRole::ADMIN,
-    UserRole::ACCOUNTANT,
-    UserRole::STAFF,
-];
-
-    $branches = auth()->user()->laboratory->branches()
-        ->where('is_active', true)
-        ->orderBy('name')
-        ->get();
-
-    return view('users.edit', compact('user', 'roles', 'branches'));
-}
-
-
-
-    /**
-     * Update the specified resource in storage.
-     */
-   public function update(UpdateUserRequest $request, User $user)
-{
-    $this->authorize('update', $user);
-
-    $data = $request->validated();
-
-    // Keep the existing password if no new password was provided
-    if (blank($data['password'])) {
-        unset($data['password']);
-    }
-
-    $user->update($data);
-
-    return redirect()
-        ->route('users.index')
-        ->with('success', 'User updated successfully.');
-}
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(User $user)
-{
-    $this->authorize('delete', $user);
-
-    $user->update([
-        'is_active' => false,
-    ]);
-
-    return redirect()
-        ->route('users.index')
-        ->with('success', 'User has been deactivated successfully.');
-}
-public function activate(User $user)
-{
-    $this->authorize('update', $user);
-
-    $user->update([
-        'is_active' => true,
-    ]);
-
-    return redirect()
-        ->route('users.index')
-        ->with('success', 'User has been activated successfully.');
-}
-}
-
-
-// user/edit.blade.php  
-<x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
-            <div>
-                <h2 class="text-xl font-semibold text-white">
-                    Edit User
-                </h2>
-
-                <p class="mt-1 text-sm text-slate-400">
-                    Update this user's information.
-                </p>
-            </div>
-
-            <a href="{{ route('users.index') }}"
-               class="inline-flex items-center justify-center rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-slate-700">
-                ← Back to Users
-            </a>
-
-        </div>
-    </x-slot>
-
-    <div class="py-8 bg-slate-900 min-h-screen">
-        <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-
-            {{-- Validation Errors --}}
-            @if ($errors->any())
-    <div class="mb-6 rounded-lg border border-red-700 bg-red-900/30 px-4 py-3 text-red-300 shadow-sm">
-
-        <p class="font-semibold">
-            Please correct the following errors:
-        </p>
-
-        <ul class="mt-2 list-disc pl-5 text-sm">
-
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-
-        </ul>
-
-    </div>
-@endif
-
-            {{-- User Form --}}
-            <div class="rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
-
-   
-     <form action="{{ route('users.update', $user) }}" method="POST">
-    @csrf
-    @method('PUT')
-
-        
-
-        <div class="p-6">
-
-            {{-- Form Fields Here --}}
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-
-    {{-- Full Name --}}
-    <div>
-        <label for="name" class="mb-2 block text-sm font-medium text-slate-300">
-            Full Name
-        </label>
-
-        <input
-            type="text"
-            id="name"
-            name="name"
-            value="{{ old('name', $user->name) }}"
-            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
-            required
-        >
-    </div>
-
-    {{-- Email --}}
-    <div>
-        <label for="email" class="mb-2 block text-sm font-medium text-slate-300">
-            Email Address
-        </label>
-
-        <input
-            type="email"
-            id="email"
-            name="email"
-            value="{{ old('email', $user->email) }}"
-            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
-            required
-        >
-    </div>
-
-    {{-- Role --}}
-    <div>
-        <label for="role" class="mb-2 block text-sm font-medium text-slate-300">
-            Role
-        </label>
-
-        <select
-            id="role"
-            name="role"
-            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
-            required
-        >
-            <option value="">Select Role</option>
-
-            @foreach ($roles as $role)
-                <option
-                    value="{{ $role->value }}"
-                    @selected(old('role', $user->role->value) == $role->value)
-                >
-                    {{ $role->label() }}
-                </option>
-            @endforeach
-
-        </select>
-    </div>
-
-    
-{{-- Branch --}}
-<div>
-    <label for="branch_id" class="mb-2 block text-sm font-medium text-slate-300">
-        Branch
-    </label>
-
-    <select
-        id="branch_id"
-        name="branch_id"
-        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
-    >
-        <option value="">Select Branch</option>
-
-        @foreach ($branches as $branch)
-            <option
-                value="{{ $branch->id }}"
-                @selected(old('branch_id', $user->branch_id) == $branch->id)
-            >
-                {{ $branch->name }}
-            </option>
-        @endforeach
-    </select>
-
-    <p id="branch-help" class="mt-1 text-xs text-slate-400 hidden">
-        Accountants have access to all branches.
-    </p>
-
-    @error('branch_id')
-        <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
-    @enderror
-</div>
-
-    {{-- Active --}}
-    <div class="flex items-end">
-        <label class="inline-flex items-center gap-3 text-slate-300">
-            <input
-                type="checkbox"
-                name="is_active"
-                value="1"
-                @checked(old('is_active', $user->is_active))
-                class="rounded border-slate-500 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
-            >
-
-            Active User
-        </label>
-    </div>
-
-    {{-- Password --}}
-    <div>
-        <label for="password" class="mb-2 block text-sm font-medium text-slate-300">
-            Password
-        </label>
-
-        <input
-            type="password"
-            id="password"
-            name="password"
-            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
-            
-        >
-    </div>
-
-    {{-- Confirm Password --}}
-    <div>
-        <label for="password_confirmation" class="mb-2 block text-sm font-medium text-slate-300">
-            Confirm Password
-        </label>
-
-        <input
-            type="password"
-            id="password_confirmation"
-            name="password_confirmation"
-            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-indigo-500 focus:ring-indigo-500"
-            
-        >
-        <p class="mt-2 text-sm text-slate-400">
-    Leave blank to keep the current password.
-</p>
-    </div>
-
-</div>
-
-        </div>
-
-        <div class="flex justify-end gap-3 border-t border-slate-700 p-6">
-
-            <a href="{{ route('users.index') }}"
-               class="rounded-md bg-slate-600 px-5 py-2 text-white hover:bg-slate-700">
-                Cancel
-            </a>
-
-            <button
-                type="submit"
-                class="rounded-md bg-indigo-600 px-5 py-2 text-white hover:bg-indigo-700">
-
-                Update User
-
-            </button>
-
-        </div>
-
-    </form>
-
-</div>
-
-        </div>
-    </div>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const role = document.getElementById('role');
-        const branch = document.getElementById('branch_id');
-        const branchHelp = document.getElementById('branch-help');
-
-        function updateBranchField() {
-            if (role.value === 'accountant') {
-                branch.value = '';
-                branch.disabled = true;
-                branchHelp.classList.remove('hidden');
-            } else {
-                branch.disabled = false;
-                branchHelp.classList.add('hidden');
-            }
-        }
-
-        role.addEventListener('change', updateBranchField);
-
-        updateBranchField();
-    });
-</script>
-</x-app-layout>
-
-// sidebar
-
 <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-700 overflow-y-auto">
 
     <!-- Logo -->
@@ -501,7 +46,15 @@ public function activate(User $user)
 
 
     {{-- Laboratory Management --}}
-    @if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+    
+
+    @if(
+    auth()->user()->isSuperAdmin()
+    || auth()->user()->isAdmin()
+    || auth()->user()->hasPermission('laboratories')
+    || auth()->user()->hasPermission('users')
+    || auth()->user()->hasPermission('branches')
+)
 
         @php
             $managementOpen = request()->routeIs('laboratories.*')
@@ -530,29 +83,43 @@ public function activate(User $user)
 
             <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
 
-                {{-- Laboratories --}}
-                <a href="{{ route('laboratories.index') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('laboratories.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>🏥</span>
-                    Laboratories
-                </a>
+                
+             {{-- Laboratories --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin() || auth()->user()->hasPermission('laboratories'))
 
-                {{-- Users --}}
-                <a href="{{ route('users.index') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('users.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>👤</span>
-                    Users
-                </a>
+    <a href="{{ route('laboratories.index') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+       {{ request()->routeIs('laboratories.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+        <span>🏥</span>
+        Laboratories
+    </a>
 
-                {{-- Branches --}}
-                <a href="{{ route('branches.index') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('branches.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>🏢</span>
-                    Branches
-                </a>
+@endif
+                
+              {{-- Users --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin() || auth()->user()->hasPermission('users'))
+
+    <a href="{{ route('users.index') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+       {{ request()->routeIs('users.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+        <span>👤</span>
+        Users
+    </a>
+
+@endif
+
+                
+               {{-- Branches --}}
+@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin() || auth()->user()->hasPermission('branches'))
+
+    <a href="{{ route('branches.index') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+       {{ request()->routeIs('branches.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+        <span>🏢</span>
+        Branches
+    </a>
+
+@endif
 
             </div>
         </div>
@@ -591,30 +158,57 @@ public function activate(User $user)
         <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
 
             {{-- Patients --}}
+              @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('patients'))
             <a href="{{ route('patients.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('patients.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>🩺</span>
                 Patients
             </a>
+            @endif
+          
+    
+
 
             {{-- Test Types --}}
+        @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('test_types'))
             <a href="{{ route('test-types.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('test-types.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>🧪</span>
                 Test Types
             </a>
+        @endif
+
+            
+
+   
+
+    {{-- existing Test Requests link --}}
+
+
+
 
             {{-- Test Requests --}}
+
+          @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('test_requests'))
             <a href="{{ route('test-requests.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('test-requests.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>🧾</span>
                 Test Requests
             </a>
+        @endif
+
+
+      
+
+   
+
+
 
             {{-- Results --}}
+          @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('results'))    
             <a href="{{ route('results.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('results.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
@@ -622,15 +216,25 @@ public function activate(User $user)
                 Results
             </a>
 
+            @endif
+
             {{-- Payments --}}
-            @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
-            <a href="{{ route('payments.index') }}"
+
+@if(
+    auth()->user()->isAdmin()
+    || auth()->user()->isAccountant()
+    || auth()->user()->hasPermission('payments')
+)
+
+     <a href="{{ route('payments.index') }}"
                class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
                {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <span>💳</span>
                 Payments
             </a>
-            @endif
+
+@endif
+
 
         </div>
     </div>
@@ -866,3 +470,248 @@ public function activate(User $user)
 
 
 </aside>
+
+
+<!-- laboratory form -->
+
+
+<div class="rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
+
+    <div class="p-6">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {{-- Laboratory Name --}}
+            <div>
+                <label for="name" class="block text-sm font-medium text-slate-300">
+                    Laboratory Name <span class="text-red-500">*</span>
+                </label>
+
+                <input
+                   type="text"
+                   id="name"
+                   name="name"
+                   value="{{ old('name', $laboratory->name ?? '') }}"
+                   class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                @error('name')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            {{-- Subdomain --}}
+            <div>
+                <label for="subdomain" class="block text-sm font-medium text-slate-300">
+                    Subdomain <span class="text-red-500">*</span>
+                </label>
+
+                <input
+                    type="text"
+                    id="subdomain"
+                    name="subdomain"
+                    value="{{ old('subdomain', $laboratory->subdomain ?? '') }}"
+                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                @error('subdomain')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            {{-- Logo --}}
+             <div>
+                <label for="logo" class="block text-sm font-medium text-slate-300">
+                    Logo
+                </label>
+
+                <input
+                    type="file"
+                    id="logo"
+                    name="logo"
+                    
+                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-white hover:file:bg-blue-700">
+
+                @error('logo')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+
+                @isset($laboratory)
+                    @if($laboratory->logo_url)
+                        <div class="mt-3">
+                            <img
+                                src="{{ $laboratory->logo_url }}"
+                                alt="{{ $laboratory->name }}"
+                                class="h-20 w-20 rounded object-cover">
+                        </div>
+                    @endif
+                @endisset
+            </div>
+
+            {{-- Phone --}}
+            <div>
+                <label for="phone" class="block text-sm font-medium text-slate-300">
+                    Phone
+                </label>
+
+                <input
+                    type="text"
+                    id="phone"
+                    name="phone"
+                    value="{{ old('phone', $laboratory->phone ?? '') }}"
+                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                @error('phone')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            {{-- Email --}}
+            <div>
+                <label for="email" class="block text-sm font-medium text-slate-300">
+                    Email
+                </label>
+
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value="{{ old('email', $laboratory->email ?? '') }}"
+                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                @error('email')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            {{-- Country --}}
+            <div>
+                <label for="country" class="block text-sm font-medium text-slate-300">
+                    Country
+                </label>
+
+                <input
+                    type="text"
+                    id="country"
+                    name="country"
+                    
+                    value="{{ old('country', $laboratory->country ?? 'Nigeria') }}"
+                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                @error('country')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            {{-- Currency Code --}}
+            <div>
+                <label for="currency_code" class="block text-sm font-medium text-slate-300">
+                    Currency Code <span class="text-red-500">*</span>
+                </label>
+
+                <input
+                    type="text"
+                    id="currency_code"
+                    name="currency_code"
+                    value="{{ old('currency_code', $laboratory->currency_code ?? 'NGN') }}"
+                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                @error('currency_code')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            {{-- Currency Symbol --}}
+            <div>
+                <label for="currency_symbol" class="block text-sm font-medium text-slate-300">
+                    Currency Symbol <span class="text-red-500">*</span>
+                </label>
+
+                <input
+                    type="text"
+                    id="currency_symbol"
+                    name="currency_symbol"
+                    value="{{ old('currency_symbol', $laboratory->currency_symbol ?? '₦') }}"
+                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                @error('currency_symbol')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            {{-- Timezone --}}
+            <div>
+                <label for="timezone" class="block text-sm font-medium text-slate-300">
+                    Timezone
+                </label>
+
+                <input
+                    type="text"
+                    id="timezone"
+                    name="timezone"
+                    
+                    value="{{ old('timezone', $laboratory->timezone ?? 'Africa/Lagos') }}"
+                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                @error('timezone')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+        </div> 
+
+        {{-- Address --}}
+        <div class="mt-6">
+            <label for="address" class="block text-sm font-medium text-slate-300">
+                Address
+            </label>
+
+            <textarea
+                id="address"
+                name="address"
+                rows="3"
+                class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">{{ old('address', $laboratory->address ?? '') }}</textarea>
+
+            @error('address')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+        </div>
+
+        {{-- Active --}}
+        <div class="mt-6">
+            <label class="inline-flex items-center">
+
+                <input
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    
+                    class="rounded border-slate-600 bg-slate-900 text-blue-600 focus:ring-blue-500"
+                    {{ old('is_active', $laboratory->is_active ?? true) ? 'checked' : '' }}>
+
+                <span class="ml-2 text-sm text-slate-300">
+                    Active
+                </span>
+
+            </label>
+        </div>
+
+    </div>
+
+    
+    <div class="flex justify-end gap-3 border-t border-slate-700 bg-slate-900 px-6 py-4">
+
+        <a href="{{ route('laboratories.index') }}"
+           class="rounded-md bg-slate-600 px-4 py-2 text-white hover:bg-slate-700">
+           
+            Cancel
+        </a>
+
+        <button
+            type="submit"
+            class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+           
+            Save Laboratory
+        </button>
+
+    </div>
+
+</div>
