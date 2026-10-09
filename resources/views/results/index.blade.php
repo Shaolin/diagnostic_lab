@@ -267,70 +267,89 @@
 
 
                                     {{-- Actions --}}
-                                    <td class="px-6 py-4">
+<td class="px-6 py-4">
 
-                                        <div class="flex flex-wrap justify-end gap-2">
+    <div class="flex flex-wrap justify-end gap-2">
 
-                                            {{-- Download --}}
-                                            <a
-                                                href="{{ route('results.download', $result) }}"
-                                                class="rounded-lg
-                                                       bg-slate-700
-                                                       px-3 py-2
-                                                       text-xs font-semibold
-                                                       text-slate-200
-                                                       hover:bg-slate-600
-                                                       transition"
-                                            >
-                                                Download
-                                            </a>
-
-
-                                            {{-- Verify --}}
-                                            @if(!$result->verified_at)
-
-                                                <form
-                                                    action="{{ route('results.verify', $result) }}"
-                                                    method="POST"
-                                                >
-                                                    @csrf
-                                                    @method('PATCH')
-
-                                                    <button
-                                                        type="submit"
-                                                        class="rounded-lg
-                                                               bg-green-600
-                                                               px-3 py-2
-                                                               text-xs font-semibold
-                                                               text-white
-                                                               hover:bg-green-700
-                                                               transition"
-                                                    >
-                                                        Verify
-                                                    </button>
-
-                                                </form>
-
-                                            @endif
+        {{-- Download --}}
+        <a
+            href="{{ route('results.download', $result) }}"
+            class="rounded-lg
+                   bg-slate-700
+                   px-3 py-2
+                   text-xs font-semibold
+                   text-slate-200
+                   hover:bg-slate-600
+                   transition"
+        >
+            Download
+        </a>
 
 
-                                            {{-- Replace --}}
-                                            <a
-                                                href="{{ route('results.edit', $result) }}"
-                                                class="rounded-lg
-                                                       bg-amber-600
-                                                       px-3 py-2
-                                                       text-xs font-semibold
-                                                       text-white
-                                                       hover:bg-amber-700
-                                                       transition"
-                                            >
-                                                Replace
-                                            </a>
+        {{-- Send via WhatsApp --}}
+        @if($result->verified_at)
 
-                                        </div>
+            <a
+                href="{{ route('results.send-whatsapp', $result) }}"
+                class="rounded-lg
+                       bg-green-600
+                       px-3 py-2
+                       text-xs font-semibold
+                       text-white
+                       hover:bg-green-700
+                       transition"
+            >
+                WhatsApp
+            </a>
 
-                                    </td>
+        @endif
+
+
+        {{-- Verify --}}
+        @if(!$result->verified_at)
+
+            <form
+                action="{{ route('results.verify', $result) }}"
+                method="POST"
+            >
+                @csrf
+                @method('PATCH')
+
+                <button
+                    type="submit"
+                    class="rounded-lg
+                           bg-green-600
+                           px-3 py-2
+                           text-xs font-semibold
+                           text-white
+                           hover:bg-green-700
+                           transition"
+                >
+                    Verify
+                </button>
+
+            </form>
+
+        @endif
+
+
+        {{-- Replace --}}
+        <a
+            href="{{ route('results.edit', $result) }}"
+            class="rounded-lg
+                   bg-amber-600
+                   px-3 py-2
+                   text-xs font-semibold
+                   text-white
+                   hover:bg-amber-700
+                   transition"
+        >
+            Replace
+        </a>
+
+    </div>
+
+</td>
 
                                 </tr>
 

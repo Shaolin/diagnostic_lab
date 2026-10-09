@@ -162,6 +162,57 @@ public function index(Request $request)
             );
     }
 
+    public function sendWhatsapp(Result $result)
+{
+    $result->load([
+        'testRequestItem.testRequest.patient',
+        'testRequestItem.testType',
+    ]);
+
+    // Make sure the result belongs to the logged-in laboratory
+    abort_if(
+        $result->testRequestItem->testRequest->laboratory_id !== auth()->user()->laboratory_id,
+        403
+    );
+
+    // Only verified results can be sent to patients
+    if (!$result->verified_at) {
+        return redirect()->back()->with('error', 'This result must be verified before it can be sent via WhatsApp.');
+    }
+
+    $patient = $result->testRequestItem->testRequest->patient;
+
+    // Patient must have a phone number
+    if (!$patient->phone) {
+        return redirect()->back()->with('error', 'This patient does not have a phone number.');
+    }
+
+    // Convert Nigerian phone number to international format
+    $phone = preg_replace('/\D/', '', $patient->phone);
+
+    if (str_starts_with($phone, '0')) {
+        $phone = '234' . substr($phone, 1);
+    }
+
+    // Generate the patient's secure result-view link
+    $resultUrl = route('patient.result.view', [
+        'trackingCode' => $result->testRequestItem->testRequest->tracking_code,
+        'result' => $result->id,
+    ]);
+
+    $laboratory = auth()->user()->laboratory;
+
+    $message = "🧪 {$laboratory->name}\n\n"
+        . "Hello {$patient->full_name}, your laboratory result is now ready.\n\n"
+        . "You can securely view your result here:\n"
+        . "{$resultUrl}\n\n"
+        . "Thank you for choosing {$laboratory->name}.";
+
+    return redirect(
+        'https://wa.me/' . $phone . '?text=' . urlencode($message)
+    );
+}
+
     /**
      * Show the result replacement form.
      */

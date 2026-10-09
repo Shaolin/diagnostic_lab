@@ -1,717 +1,541 @@
-<aside class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-700 overflow-y-auto">
+<?php
 
-    <!-- Logo -->
-    <div class="flex h-16 items-center border-b border-slate-700 px-6">
+namespace App\Http\Controllers;
 
-        <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
+use App\Models\TestRequest;
+use Illuminate\Http\Request;
+use App\Models\Result;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+class PatientTrackingController extends Controller
+{
+    public function index()
+    {
+        return view('patient.track');
+    }
 
-            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-xl font-bold text-white">
-                🧪
-            </div>
+    public function search(Request $request)
+    {
+        $request->validate([
+            'tracking_code' => ['required', 'string', 'max:255'],
+        ]);
 
-            <div>
-                <h1 class="text-lg font-bold text-white">
-                    Diagnostic Lab
-                </h1>
+        $trackingCode = trim($request->tracking_code);
 
-               <p class="text-xs text-slate-400">
+       $testRequest = TestRequest::with(['items.result'])
+    ->where('tracking_code', $trackingCode)
+    ->first();
 
-    @if(auth()->user()->isSuperAdmin())
-        Super Admin
-    @elseif(auth()->user()->isAdmin())
-        Laboratory Administrator
-    @else
-        Staff
-    @endif
+        if (!$testRequest) {
+            return back()
+                ->withInput()
+                ->with('error', 'We could not find a laboratory request with that tracking ID.');
+        }
 
-</p>
-            </div>
+        return view('patient.result', compact('testRequest'));
+    }
 
-        </a>
+  public function download(string $trackingCode, Result $result)
+{
+    $testRequest = TestRequest::where('tracking_code', $trackingCode)
+        ->firstOrFail();
 
-    </div>
+    $result->loadMissing([
+        'testRequestItem.testRequest',
+    ]);
 
-    
-  
-<!-- Navigation -->
-<nav class="mt-6 space-y-2 px-4">
+    /*
+    |--------------------------------------------------------------------------
+    | Security Check
+    |--------------------------------------------------------------------------
+    |
+    | Make sure this result actually belongs to the test request
+    | represented by the tracking code.
+    |
+    */
 
-    {{-- Dashboard --}}
-    <a href="{{ route('dashboard') }}"
-       class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-       {{ request()->routeIs('dashboard') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-        <span>🏠</span>
-        Dashboard
-    </a>
+    if (
+        !$result->testRequestItem ||
+        $result->testRequestItem->test_request_id !== $testRequest->id
+    ) {
+        abort(403, 'Unauthorized access to this result.');
+    }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Result File
+    |--------------------------------------------------------------------------
+    */
 
-    {{-- Laboratory Management --}}
-    
+    if (
+        !$result->pdf_path ||
+        !Storage::disk('private')->exists($result->pdf_path)
+    ) {
+        abort(404, 'Result file not found.');
+    }
 
-    @if(
-    auth()->user()->isSuperAdmin()
-    || auth()->user()->isAdmin()
-    || auth()->user()->hasPermission('laboratories')
-    || auth()->user()->hasPermission('users')
-    || auth()->user()->hasPermission('branches')
-)
+    /*
+    |--------------------------------------------------------------------------
+    | Download
+    |--------------------------------------------------------------------------
+    */
 
-        @php
-            $managementOpen = request()->routeIs('laboratories.*')
-                || request()->routeIs('users.*')
-                || request()->routeIs('branches.*');
-        @endphp
+    $fileName = Str::slug(
+        $result->testRequestItem->test_name
+    ) . '-result.pdf';
 
-        <div x-data="{ open: {{ $managementOpen ? 'true' : 'false' }} }">
+    return response()->download(
+        Storage::disk('private')->path($result->pdf_path),
+        $fileName,
+        [
+            'Content-Type' => 'application/pdf',
+        ]
+    );
+}
 
-            <button
-                type="button"
-                @click="open = !open"
-                class="flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition
-                {{ $managementOpen ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}"
-            >
-                <span class="flex items-center gap-3">
-                    <span>🏥</span>
-                    Laboratory Management
-                </span>
+public function view(string $trackingCode, Result $result)
+{
+    $testRequest = TestRequest::where('tracking_code', $trackingCode)
+        ->firstOrFail();
 
-                <span class="text-xs transition-transform"
-                      :class="{ 'rotate-180': open }">
-                    ▼
-                </span>
-            </button>
+    $result->loadMissing([
+        'testRequestItem.testRequest',
+    ]);
 
-            <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
+    /*
+    |--------------------------------------------------------------------------
+    | Security Check
+    |--------------------------------------------------------------------------
+    */
 
-                
-             {{-- Laboratories --}}
-@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin() || auth()->user()->hasPermission('laboratories'))
+    if (
+        !$result->testRequestItem ||
+        $result->testRequestItem->test_request_id !== $testRequest->id
+    ) {
+        abort(403, 'Unauthorized access to this result.');
+    }
 
-    <a href="{{ route('laboratories.index') }}"
-       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-       {{ request()->routeIs('laboratories.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-        <span>🏥</span>
-        Laboratories
-    </a>
+    /*
+    |--------------------------------------------------------------------------
+    | Result File
+    |--------------------------------------------------------------------------
+    */
 
-@endif
-                
-              {{-- Users --}}
-@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin() || auth()->user()->hasPermission('users'))
+    if (
+        !$result->pdf_path ||
+        !Storage::disk('private')->exists($result->pdf_path)
+    ) {
+        abort(404, 'Result file not found.');
+    }
 
-    <a href="{{ route('users.index') }}"
-       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-       {{ request()->routeIs('users.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-        <span>👤</span>
-        Users
-    </a>
+    /*
+    |--------------------------------------------------------------------------
+    | Display PDF in Browser
+    |--------------------------------------------------------------------------
+    */
 
-@endif
-
-                
-               {{-- Branches --}}
-@if(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin() || auth()->user()->hasPermission('branches'))
-
-    <a href="{{ route('branches.index') }}"
-       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-       {{ request()->routeIs('branches.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-        <span>🏢</span>
-        Branches
-    </a>
-
-@endif
-
-            </div>
-        </div>
-
-    @endif
-
-
-    {{-- Laboratory Operations --}}
-    @php
-        $operationsOpen = request()->routeIs('patients.*')
-            || request()->routeIs('test-types.*')
-            || request()->routeIs('test-requests.*')
-            || request()->routeIs('results.*')
-            || request()->routeIs('payments.*');
-    @endphp
-
-    <div x-data="{ open: {{ $operationsOpen ? 'true' : 'false' }} }">
-
-        <button
-            type="button"
-            @click="open = !open"
-            class="flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition
-            {{ $operationsOpen ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}"
-        >
-            <span class="flex items-center gap-3">
-                <span>🧪</span>
-                Laboratory Operations
-            </span>
-
-            <span class="text-xs transition-transform"
-                  :class="{ 'rotate-180': open }">
-                ▼
-            </span>
-        </button>
-
-        <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
-
-            {{-- Patients --}}
-              @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('patients'))
-            <a href="{{ route('patients.index') }}"
-               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-               {{ request()->routeIs('patients.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                <span>🩺</span>
-                Patients
-            </a>
-            @endif
-          
-    
+    return response()->file(
+        Storage::disk('private')->path($result->pdf_path),
+        [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' .
+                basename($result->pdf_path) . '"',
+        ]
+    );
+}
+}
 
 
-            {{-- Test Types --}}
-        @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('test_types'))
-            <a href="{{ route('test-types.index') }}"
-               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-               {{ request()->routeIs('test-types.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                <span>🧪</span>
-                Test Types
-            </a>
-        @endif
+// result index
 
-            
+<x-app-layout>
 
-   
+    <x-slot name="header">
 
-    {{-- existing Test Requests link --}}
-
-
-
-
-            {{-- Test Requests --}}
-
-          @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('test_requests'))
-            <a href="{{ route('test-requests.index') }}"
-               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-               {{ request()->routeIs('test-requests.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                <span>🧾</span>
-                Test Requests
-            </a>
-        @endif
-
-
-      
-
-   
-
-
-
-            {{-- Results --}}
-          @if(auth()->user()->isAdmin() || auth()->user()->hasPermission('results'))    
-            <a href="{{ route('results.index') }}"
-               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-               {{ request()->routeIs('results.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                <span>📄</span>
+        <div>
+            <h2 class="font-semibold text-xl text-slate-300 leading-tight">
                 Results
-            </a>
+            </h2>
 
-            @endif
-
-            {{-- Payments --}}
-
-@if(
-    auth()->user()->isAdmin()
-    || auth()->user()->isAccountant()
-    || auth()->user()->hasPermission('payments')
-)
-
-     <a href="{{ route('payments.index') }}"
-               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-               {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                <span>💳</span>
-                Payments
-            </a>
-
-@endif
-
-
-        </div>
-    </div>
-
-
-
-    {{-- Accounting --}}
-   @php
-    $accountingEnabled = \App\Models\LaboratoryModule::where('laboratory_id', auth()->user()->laboratory_id)
-        ->where('module', 'accounting')
-        ->where('enabled', true)
-        ->exists();
-@endphp
-
-@if(
-    (auth()->user()->isAdmin() || auth()->user()->isAccountant())
-    && $accountingEnabled
-)
-        @php
-            $accountingOpen = request()->routeIs('accounting.*');
-        @endphp
-
-        <div x-data="{ open: {{ $accountingOpen ? 'true' : 'false' }} }">
-
-            <button
-                type="button"
-                @click="open = !open"
-                class="flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition
-                {{ $accountingOpen ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}"
-            >
-                <span class="flex items-center gap-3">
-                    <span>📊</span>
-                    Accounting
-                </span>
-
-                <span class="text-xs transition-transform"
-                      :class="{ 'rotate-180': open }">
-                    ▼
-                </span>
-            </button>
-
-            <div x-show="open" x-transition class="mt-1 space-y-1 pl-4">
-
-                {{-- General Ledger --}}
-                <a href="{{ route('accounting.general-ledger') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('accounting.general-ledger') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>📒</span>
-                    Account Ledger
-                </a>
-
-                {{-- Branch Income / Sales --}}
-<a href="{{ route('accounting.branch-income.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('accounting.branch-income.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>📊</span>
-    Branch Income / Sales
-</a>
-{{-- Profit & Loss --}}
-<a href="{{ route('accounting.profit-loss.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('accounting.profit-loss.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>📈</span>
-    Profit & Loss
-</a>
-
-{{-- Balance Sheet --}}
-<a href="{{ route('accounting.balance-sheet.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('accounting.balance-sheet.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>📋</span>
-    Balance Sheet
-</a>
-
-{{-- Cash Flow --}}
-<a href="{{ route('accounting.cash-flow') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('accounting.cash-flow') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>💵</span>
-    Cash Flow
-</a>
-
-{{-- Monthly Financial Reports --}}
-<a href="{{ route('accounting.monthly-financial-report') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('accounting.monthly-financial-report') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>📊</span>
-    Monthly Financial Reports
-</a>
-{{-- Branch Reports --}}
-<a href="{{ route('accounting.branch-reports') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('accounting.branch-reports') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>🏢</span>
-    Branch Reports
-</a>
-
-                {{-- Petty Cash --}}
-                <a href="{{ route('accounting.petty-cash.funds.index') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('accounting.petty-cash.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>💵</span>
-                    Petty Cash
-                </a>
-
-                {{-- Inventory --}}
-<a href="{{ route('accounting.inventory.stocks.index') }}"
-    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-    {{ request()->routeIs('accounting.inventory.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-    <span>📦</span>
-    Inventory
-</a>
-
-{{-- Inventory Items --}}
-<a href="{{ route('accounting.inventory.items.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('accounting.inventory.items.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-    <span>🧪</span>
-    Inventory Items
-</a>
-
-{{-- Issue Stock --}}
-<a href="{{ route('accounting.inventory.stock-issues.create') }}"
-    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-    {{ request()->routeIs('accounting.inventory.stock-issues.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-    <span>📤</span>
-    Issue Stock
-</a>
-{{-- Stock Movement --}}
-<a href="{{ route('accounting.inventory.stock-movements.index') }}"
-    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-    {{ request()->routeIs('accounting.inventory.stock-movements.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-    <span>📋</span>
-    Stock Movement
-</a>
-
-<a href="{{ route('accounting.fixed-assets.index') }}"
-    class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-    {{ request()->routeIs('accounting.fixed-assets.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-    <span>🏢</span>
-    Fixed Assets
-</a>
-
-{{-- Bank Accounts --}}
-<a href="{{ route('accounting.bank-accounts.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('accounting.bank-accounts.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>🏦</span>
-    Bank Accounts
-</a>
-{{-- Bank Reconciliation --}}
-<a href="{{ route('accounting.bank-reconciliation.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('accounting.bank-reconciliation.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-
-    <span>🔄</span>
-    Bank Reconciliation
-</a>
-                {{-- Accounts Receivable --}}
-                <a href="{{ route('accounting.accounts-receivable') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('accounting.accounts-receivable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>💰</span>
-                    Accounts Receivable
-                </a>
-
-                {{-- Suppliers --}}
-<a href="{{ route('suppliers.index') }}"
-   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-   {{ request()->routeIs('suppliers.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-    <span>🏢</span>
-    Suppliers
-</a>
-
-                {{-- Accounts Payable --}}
-                <a href="{{ route('accounting.accounts-payable') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('accounting.accounts-payable*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>📋</span>
-                    Accounts Payable
-                </a>
-
-                {{-- Operating Expenses --}}
-                <a href="{{ route('accounting.expenses') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('accounting.expenses*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>💸</span>
-                    Operating Expenses
-                </a>
-
-                {{-- Trial Balance --}}
-                <a href="{{ route('accounting.trial-balance') }}"
-                   class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-                   {{ request()->routeIs('accounting.trial-balance*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                    <span>📊</span>
-                    Trial Balance
-                </a>
-
-            </div>
+            <p class="text-sm text-slate-400 mt-1">
+                Manage uploaded laboratory results
+            </p>
         </div>
 
-    @endif
+    </x-slot>
 
 
-    {{-- Reports --}}
+    <div class="py-8">
 
-    @if(auth()->user()->isAdmin() || auth()->user()->isAccountant())
-    <a href="{{ route('reports.index') }}"
-       class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition
-       {{ request()->routeIs('reports.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-        <span>📊</span>
-        Reports
-    </a>
-@endif
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
-    {{-- Settings --}}
-    <div class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-500">
-        <span>⚙️</span>
-        Settings
-    </div>
+            {{-- Filters --}}
+            <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-sm mb-6">
 
-</nav>
+                <div class="p-5">
 
+                    <form
+                        method="GET"
+                        action="{{ route('results.index') }}"
+                        class="grid grid-cols-1 md:grid-cols-4 gap-4"
+                    >
 
+                        {{-- Search --}}
+                        <div class="md:col-span-2">
 
+                            <label
+                                for="search"
+                                class="block text-sm font-medium text-slate-300 mb-1"
+                            >
+                                Search
+                            </label>
 
+                            <input
+                                type="text"
+                                id="search"
+                                name="search"
+                                value="{{ request('search') }}"
+                                placeholder="Patient, patient number, test or tracking code..."
+                                class="w-full rounded-lg
+                                       bg-slate-800
+                                       border-slate-700
+                                       text-slate-200
+                                       placeholder-slate-500
+                                       focus:border-indigo-500
+                                       focus:ring-indigo-500"
+                            >
 
-</aside>
-
-
-<!-- laboratory form -->
-
-
-<div class="rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
-
-    <div class="p-6">
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {{-- Laboratory Name --}}
-            <div>
-                <label for="name" class="block text-sm font-medium text-slate-300">
-                    Laboratory Name <span class="text-red-500">*</span>
-                </label>
-
-                <input
-                   type="text"
-                   id="name"
-                   name="name"
-                   value="{{ old('name', $laboratory->name ?? '') }}"
-                   class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-
-                @error('name')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-
-            {{-- Subdomain --}}
-            <div>
-                <label for="subdomain" class="block text-sm font-medium text-slate-300">
-                    Subdomain <span class="text-red-500">*</span>
-                </label>
-
-                <input
-                    type="text"
-                    id="subdomain"
-                    name="subdomain"
-                    value="{{ old('subdomain', $laboratory->subdomain ?? '') }}"
-                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-
-                @error('subdomain')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-
-            {{-- Logo --}}
-             <div>
-                <label for="logo" class="block text-sm font-medium text-slate-300">
-                    Logo
-                </label>
-
-                <input
-                    type="file"
-                    id="logo"
-                    name="logo"
-                    
-                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-white hover:file:bg-blue-700">
-
-                @error('logo')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-
-                @isset($laboratory)
-                    @if($laboratory->logo_url)
-                        <div class="mt-3">
-                            <img
-                                src="{{ $laboratory->logo_url }}"
-                                alt="{{ $laboratory->name }}"
-                                class="h-20 w-20 rounded object-cover">
                         </div>
-                    @endif
-                @endisset
+
+
+                        {{-- Status --}}
+                        <div>
+
+                            <label
+                                for="status"
+                                class="block text-sm font-medium text-slate-300 mb-1"
+                            >
+                                Verification Status
+                            </label>
+
+                            <select
+                                id="status"
+                                name="status"
+                                class="w-full rounded-lg
+                                       bg-slate-800
+                                       border-slate-700
+                                       text-slate-200
+                                       focus:border-indigo-500
+                                       focus:ring-indigo-500"
+                            >
+
+                                <option value="">All Results</option>
+
+                                <option
+                                    value="verified"
+                                    {{ request('status') === 'verified' ? 'selected' : '' }}
+                                >
+                                    Verified
+                                </option>
+
+                                <option
+                                    value="pending"
+                                    {{ request('status') === 'pending' ? 'selected' : '' }}
+                                >
+                                    Awaiting Verification
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        {{-- Buttons --}}
+                        <div class="flex items-end gap-2">
+
+                            <button
+                                type="submit"
+                                class="px-4 py-2 rounded-lg
+                                       bg-indigo-600
+                                       text-white
+                                       text-sm font-semibold
+                                       hover:bg-indigo-700
+                                       transition"
+                            >
+                                Search
+                            </button>
+
+                            <a
+                                href="{{ route('results.index') }}"
+                                class="px-4 py-2 rounded-lg
+                                       bg-slate-800
+                                       border border-slate-700
+                                       text-slate-300
+                                       text-sm font-semibold
+                                       hover:bg-slate-700
+                                       hover:text-white
+                                       transition"
+                            >
+                                Reset
+                            </a>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
             </div>
 
-            {{-- Phone --}}
-            <div>
-                <label for="phone" class="block text-sm font-medium text-slate-300">
-                    Phone
-                </label>
 
-                <input
-                    type="text"
-                    id="phone"
-                    name="phone"
-                    value="{{ old('phone', $laboratory->phone ?? '') }}"
-                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            {{-- Results Table --}}
+            <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-sm overflow-hidden">
 
-                @error('phone')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
+                <div class="overflow-x-auto">
+
+                    <table class="min-w-full divide-y divide-slate-800">
+
+                        <thead class="bg-slate-800/70">
+
+                            <tr>
+
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    Patient
+                                </th>
+
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    Tracking Code
+                                </th>
+
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    Test
+                                </th>
+
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    Uploaded
+                                </th>
+
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    Status
+                                </th>
+
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    Actions
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody class="divide-y divide-slate-800">
+
+                            @forelse($results as $result)
+
+                                <tr class="hover:bg-slate-800/40 transition">
+
+                                    {{-- Patient --}}
+                                    <td class="px-6 py-4">
+
+                                        <div class="font-medium text-slate-200">
+                                            {{ $result->testRequestItem->testRequest->patient->full_name }}
+                                        </div>
+
+                                        <div class="text-xs text-slate-500 mt-1">
+                                            {{ $result->testRequestItem->testRequest->patient->patient_number }}
+                                        </div>
+
+                                    </td>
+
+
+                                    {{-- Tracking Code --}}
+                                    <td class="px-6 py-4">
+
+                                        <span class="text-sm text-slate-300">
+                                            {{ $result->testRequestItem->testRequest->tracking_code }}
+                                        </span>
+
+                                    </td>
+
+
+                                    {{-- Test --}}
+                                    <td class="px-6 py-4">
+
+                                        <span class="text-sm text-slate-300">
+                                            {{ $result->testRequestItem->test_name }}
+                                        </span>
+
+                                    </td>
+
+
+                                    {{-- Uploaded --}}
+                                    <td class="px-6 py-4">
+
+                                        <div class="text-sm text-slate-300">
+                                            {{ $result->uploaded_at?->format('d M Y') ?? 'N/A' }}
+                                        </div>
+
+                                        <div class="text-xs text-slate-500 mt-1">
+                                            {{ $result->uploaded_at?->format('h:i A') }}
+                                        </div>
+
+                                    </td>
+
+
+                                    {{-- Status --}}
+                                    <td class="px-6 py-4">
+
+                                        @if($result->verified_at)
+
+                                            <span class="inline-flex items-center rounded-full
+                                                         bg-green-900/30
+                                                         px-3 py-1
+                                                         text-xs font-semibold
+                                                         text-green-400
+                                                         ring-1 ring-green-700">
+
+                                                ✓ Verified
+
+                                            </span>
+
+                                        @else
+
+                                            <span class="inline-flex items-center rounded-full
+                                                         bg-yellow-900/30
+                                                         px-3 py-1
+                                                         text-xs font-semibold
+                                                         text-yellow-400
+                                                         ring-1 ring-yellow-700">
+
+                                                Awaiting Verification
+
+                                            </span>
+
+                                        @endif
+
+                                    </td>
+
+
+                                    {{-- Actions --}}
+                                    <td class="px-6 py-4">
+
+                                        <div class="flex flex-wrap justify-end gap-2">
+
+                                            {{-- Download --}}
+                                            <a
+                                                href="{{ route('results.download', $result) }}"
+                                                class="rounded-lg
+                                                       bg-slate-700
+                                                       px-3 py-2
+                                                       text-xs font-semibold
+                                                       text-slate-200
+                                                       hover:bg-slate-600
+                                                       transition"
+                                            >
+                                                Download
+                                            </a>
+
+
+                                            {{-- Verify --}}
+                                            @if(!$result->verified_at)
+
+                                                <form
+                                                    action="{{ route('results.verify', $result) }}"
+                                                    method="POST"
+                                                >
+                                                    @csrf
+                                                    @method('PATCH')
+
+                                                    <button
+                                                        type="submit"
+                                                        class="rounded-lg
+                                                               bg-green-600
+                                                               px-3 py-2
+                                                               text-xs font-semibold
+                                                               text-white
+                                                               hover:bg-green-700
+                                                               transition"
+                                                    >
+                                                        Verify
+                                                    </button>
+
+                                                </form>
+
+                                            @endif
+
+
+                                            {{-- Replace --}}
+                                            <a
+                                                href="{{ route('results.edit', $result) }}"
+                                                class="rounded-lg
+                                                       bg-amber-600
+                                                       px-3 py-2
+                                                       text-xs font-semibold
+                                                       text-white
+                                                       hover:bg-amber-700
+                                                       transition"
+                                            >
+                                                Replace
+                                            </a>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            @empty
+
+                                <tr>
+
+                                    <td
+                                        colspan="6"
+                                        class="px-6 py-12 text-center"
+                                    >
+
+                                        <div class="text-slate-500">
+                                            No laboratory results found.
+                                        </div>
+
+                                        @if(request()->hasAny(['search', 'status']))
+
+                                            <a
+                                                href="{{ route('results.index') }}"
+                                                class="inline-block mt-3 text-sm text-indigo-400 hover:text-indigo-300"
+                                            >
+                                                Clear filters
+                                            </a>
+
+                                        @endif
+
+                                    </td>
+
+                                </tr>
+
+                            @endforelse
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+                {{-- Pagination --}}
+                @if($results->hasPages())
+
+                    <div class="border-t border-slate-800 px-6 py-4">
+
+                        {{ $results->links() }}
+
+                    </div>
+
+                @endif
+
             </div>
 
-            {{-- Email --}}
-            <div>
-                <label for="email" class="block text-sm font-medium text-slate-300">
-                    Email
-                </label>
-
-                <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value="{{ old('email', $laboratory->email ?? '') }}"
-                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-
-                @error('email')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-
-            {{-- Country --}}
-            <div>
-                <label for="country" class="block text-sm font-medium text-slate-300">
-                    Country
-                </label>
-
-                <input
-                    type="text"
-                    id="country"
-                    name="country"
-                    
-                    value="{{ old('country', $laboratory->country ?? 'Nigeria') }}"
-                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-
-                @error('country')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-
-            {{-- Currency Code --}}
-            <div>
-                <label for="currency_code" class="block text-sm font-medium text-slate-300">
-                    Currency Code <span class="text-red-500">*</span>
-                </label>
-
-                <input
-                    type="text"
-                    id="currency_code"
-                    name="currency_code"
-                    value="{{ old('currency_code', $laboratory->currency_code ?? 'NGN') }}"
-                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-
-                @error('currency_code')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-
-            {{-- Currency Symbol --}}
-            <div>
-                <label for="currency_symbol" class="block text-sm font-medium text-slate-300">
-                    Currency Symbol <span class="text-red-500">*</span>
-                </label>
-
-                <input
-                    type="text"
-                    id="currency_symbol"
-                    name="currency_symbol"
-                    value="{{ old('currency_symbol', $laboratory->currency_symbol ?? '₦') }}"
-                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-
-                @error('currency_symbol')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-
-            {{-- Timezone --}}
-            <div>
-                <label for="timezone" class="block text-sm font-medium text-slate-300">
-                    Timezone
-                </label>
-
-                <input
-                    type="text"
-                    id="timezone"
-                    name="timezone"
-                    
-                    value="{{ old('timezone', $laboratory->timezone ?? 'Africa/Lagos') }}"
-                    class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-
-                @error('timezone')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-
-        </div> 
-
-        {{-- Address --}}
-        <div class="mt-6">
-            <label for="address" class="block text-sm font-medium text-slate-300">
-                Address
-            </label>
-
-            <textarea
-                id="address"
-                name="address"
-                rows="3"
-                class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 text-white placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-blue-500">{{ old('address', $laboratory->address ?? '') }}</textarea>
-
-            @error('address')
-                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-            @enderror
-        </div>
-
-        {{-- Active --}}
-        <div class="mt-6">
-            <label class="inline-flex items-center">
-
-                <input
-                    type="checkbox"
-                    name="is_active"
-                    value="1"
-                    
-                    class="rounded border-slate-600 bg-slate-900 text-blue-600 focus:ring-blue-500"
-                    {{ old('is_active', $laboratory->is_active ?? true) ? 'checked' : '' }}>
-
-                <span class="ml-2 text-sm text-slate-300">
-                    Active
-                </span>
-
-            </label>
         </div>
 
     </div>
 
-    
-    <div class="flex justify-end gap-3 border-t border-slate-700 bg-slate-900 px-6 py-4">
-
-        <a href="{{ route('laboratories.index') }}"
-           class="rounded-md bg-slate-600 px-4 py-2 text-white hover:bg-slate-700">
-           
-            Cancel
-        </a>
-
-        <button
-            type="submit"
-            class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-           
-            Save Laboratory
-        </button>
-
-    </div>
-
-</div>
+</x-app-layout>

@@ -197,6 +197,13 @@ Route::get(
         [ResultController::class, 'verify']
     )->name('verify');
 
+    // Send result via WhatsApp
+    Route::get(
+    '{result}/send-whatsapp',
+    [ResultController::class, 'sendWhatsapp']
+    )->name('send-whatsapp');
+
+
     // Replace result
     Route::get(
         '{result}/edit',
