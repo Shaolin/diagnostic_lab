@@ -1,541 +1,548 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Auth;
+use App\Http\Controllers\Controller;
+use App\Enums\UserRole;
+use App\Http\Requests\RegisterLaboratoryRequest;
+use App\Models\Laboratory;
+use App\Models\User;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\View\View;
+use App\Services\ChartOfAccountsService;
 
-use App\Models\TestRequest;
-use Illuminate\Http\Request;
-use App\Models\Result;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-class PatientTrackingController extends Controller
+class RegisteredUserController extends Controller
 {
-    public function index()
+    /**
+     * Display the registration view.
+     */
+    public function create(): View
     {
-        return view('patient.track');
+        return view('auth.register');
     }
 
-    public function search(Request $request)
-    {
-        $request->validate([
-            'tracking_code' => ['required', 'string', 'max:255'],
+    /**
+     * Handle an incoming registration request.
+     *
+     * @throws ValidationException
+     */
+   /**
+ * Handle an incoming registration request.
+ */
+public function store(RegisterLaboratoryRequest $request): RedirectResponse
+{
+    $data = $request->validated();
+
+    $user = DB::transaction(function () use ($data) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Laboratory
+        |--------------------------------------------------------------------------
+        */
+
+        $laboratory = Laboratory::create([
+            'name' => $data['laboratory_name'],
+
+            // Temporary placeholder.
+            // Later this will come from the registration link.
+            'subdomain' => 'temporary-' . uniqid(),
+
+            'phone' => $data['phone'] ?? null,
+            'email' => $data['laboratory_email'] ?? null,
+            'address' => $data['address'] ?? null,
+            'country' => $data['country'] ?? null,
+            'currency_code' => $data['currency_code'],
+            'currency_symbol' => $data['currency_symbol'],
+            'timezone' => $data['timezone'],
+            'is_active' => true,
         ]);
 
-        $trackingCode = trim($request->tracking_code);
+        /*
+        |--------------------------------------------------------------------------
+        | Create Administrator
+        |--------------------------------------------------------------------------
+        */
 
-       $testRequest = TestRequest::with(['items.result'])
-    ->where('tracking_code', $trackingCode)
-    ->first();
+        $user = User::create([
+            'laboratory_id' => $laboratory->id,
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'role' => UserRole::ADMIN,
+            'is_active' => true,
+        ]);
 
-        if (!$testRequest) {
-            return back()
-                ->withInput()
-                ->with('error', 'We could not find a laboratory request with that tracking ID.');
+        return $user;
+    });
+
+    event(new Registered($user));
+
+    Auth::login($user);
+
+    return redirect(route('dashboard', absolute: false));
+}
+}
+
+// laboratory controller
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Laboratory;
+use Illuminate\Support\Facades\Storage;
+class LaboratoryController extends Controller
+{
+    
+   /**
+ * Display a listing of laboratories.
+ */
+public function index(Request $request)
+{
+
+$this->authorize('viewAny', Laboratory::class);
+    $search = $request->input('search');
+
+    $laboratories = Laboratory::query()
+
+    ->when(! auth()->user()->isSuperAdmin(), function ($query) {
+        $query->where('id', auth()->user()->laboratory_id);
+    })
+
+        ->when(! auth()->user()->isSuperAdmin(), function ($query) {
+            $query->where('id', auth()->user()->laboratory_id);
+        })
+
+        ->when($search, function ($query) use ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('subdomain', 'like', "%{$search}%");
+            });
+        })
+
+        ->latest()
+        ->paginate(10)
+        ->withQueryString();
+
+    return view('laboratories.index', compact('laboratories', 'search'));
+}
+    
+    /**
+ * Show the form for creating a new laboratory.
+ */
+public function create()
+{
+    return view('laboratories.create');
+}
+
+    
+   /**
+ * Store a newly created laboratory in storage.
+ */
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'name'              => ['required', 'string', 'max:255'],
+        'subdomain'         => ['required', 'alpha_dash', 'max:255', 'unique:laboratories,subdomain'],
+        'logo'              => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        'phone'             => ['nullable', 'string', 'max:50'],
+        'email'             => ['nullable', 'email', 'max:255'],
+        'address'           => ['nullable', 'string'],
+        'country'           => ['nullable', 'string', 'max:100'],
+        'currency_code'     => ['required', 'string', 'max:10'],
+        'currency_symbol'   => ['required', 'string', 'max:10'],
+        'timezone'          => ['nullable', 'string', 'max:100'],
+        'is_active'         => ['nullable', 'boolean'],
+    ]);
+
+    // Always store the subdomain in lowercase
+    $validated['subdomain'] = strtolower($validated['subdomain']);
+
+    // Handle logo upload
+    if ($request->hasFile('logo')) {
+        $validated['logo'] = $request->file('logo')->store('laboratories', 'public');
+    }
+
+    // Checkbox handling
+    $validated['is_active'] = $request->boolean('is_active');
+
+    Laboratory::create($validated);
+
+    return redirect()
+        ->route('laboratories.index')
+        ->with('success', 'Laboratory created successfully.');
+}
+
+    
+   /**
+    * Display the specified laboratory.
+   */
+public function show(Laboratory $laboratory)
+{
+    $this->authorize('view', $laboratory);
+    return view('laboratories.show', compact('laboratory'));
+}
+
+    
+   /**
+ * Show the form for editing the specified laboratory.
+ */
+public function edit(Laboratory $laboratory)
+{
+    $this->authorize('update', $laboratory);
+    return view('laboratories.edit', compact('laboratory'));
+}
+
+   
+    /**
+ * Update the specified laboratory in storage.
+ */
+public function update(Request $request, Laboratory $laboratory)
+{
+    $this->authorize('update', $laboratory);
+    $validated = $request->validate([
+        'name'              => ['required', 'string', 'max:255'],
+        'subdomain'         => [
+            'required',
+            'alpha_dash',
+            'max:255',
+            'unique:laboratories,subdomain,' . $laboratory->id,
+        ],
+        'logo'              => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        'phone'             => ['nullable', 'string', 'max:50'],
+        'email'             => ['nullable', 'email', 'max:255'],
+        'address'           => ['nullable', 'string'],
+        'country'           => ['nullable', 'string', 'max:100'],
+        'currency_code'     => ['required', 'string', 'max:10'],
+        'currency_symbol'   => ['required', 'string', 'max:10'],
+        'timezone'          => ['nullable', 'string', 'max:100'],
+        'is_active'         => ['nullable', 'boolean'],
+    ]);
+
+    // Always store the subdomain in lowercase.
+    $validated['subdomain'] = strtolower($validated['subdomain']);
+
+    // Upload a new logo if one was provided.
+  if ($request->hasFile('logo')) {
+    $file = $request->file('logo');
+
+    $filename = $file->hashName();
+
+    Storage::disk('public')->put(
+        'laboratories/' . $filename,
+        file_get_contents($file->getPathname())
+    );
+
+    $validated['logo'] = 'laboratories/' . $filename;
+}
+    // Handle checkbox value.
+    $validated['is_active'] = $request->boolean('is_active');
+
+    $laboratory->update($validated);
+
+    return redirect()
+        ->route('laboratories.index')
+        ->with('success', 'Laboratory updated successfully.');
+}
+
+   
+   /**
+ * Remove the specified laboratory from storage.
+ */
+public function destroy(Laboratory $laboratory)
+{
+    $this->authorize('delete', $laboratory);
+    $laboratory->delete();
+
+    return redirect()
+        ->route('laboratories.index')
+        ->with('success', 'Laboratory deleted successfully.');
+}
+}
+
+//chart of account seeder
+
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\ChartOfAccount;
+use App\Models\Laboratory;
+use Illuminate\Database\Seeder;
+
+class ChartOfAccountsSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        $laboratories = Laboratory::all();
+
+        foreach ($laboratories as $laboratory) {
+
+            // Assets
+            $assets = ChartOfAccount::firstOrCreate(
+                [
+                    'laboratory_id' => $laboratory->id,
+                    'code' => '1000',
+                ],
+                [
+                    'name' => 'Assets',
+                    'type' => 'asset',
+                    'is_system' => true,
+                    'is_active' => true,
+                    'sort_order' => 100,
+                ]
+            );
+
+            $this->createAccount($laboratory->id, $assets->id, '1100', 'Cash', 'asset', 110);
+            $this->createAccount($laboratory->id, $assets->id, '1150', 'Petty Cash', 'asset', 115);
+            $this->createAccount($laboratory->id, $assets->id, '1200', 'Bank', 'asset', 120);
+            $this->createAccount($laboratory->id, $assets->id, '1300', 'Accounts Receivable', 'asset', 130);
+            $this->createAccount($laboratory->id, $assets->id, '1400', 'Inventory', 'asset', 140);
+            $this->createAccount($laboratory->id, $assets->id, '1500', 'Fixed Assets', 'asset', 150);
+            $this->createAccount($laboratory->id, $assets->id, '1550', 'Accumulated Depreciation', 'asset', 155);
+
+            // Liabilities
+            $liabilities = ChartOfAccount::firstOrCreate(
+                [
+                    'laboratory_id' => $laboratory->id,
+                    'code' => '2000',
+                ],
+                [
+                    'name' => 'Liabilities',
+                    'type' => 'liability',
+                    'is_system' => true,
+                    'is_active' => true,
+                    'sort_order' => 200,
+                ]
+            );
+
+            $this->createAccount($laboratory->id, $liabilities->id, '2100', 'Accounts Payable', 'liability', 210);
+            $this->createAccount($laboratory->id, $liabilities->id, '2200', 'Loans Payable', 'liability', 220);
+
+            // Equity
+            $equity = ChartOfAccount::firstOrCreate(
+                [
+                    'laboratory_id' => $laboratory->id,
+                    'code' => '3000',
+                ],
+                [
+                    'name' => 'Equity',
+                    'type' => 'equity',
+                    'is_system' => true,
+                    'is_active' => true,
+                    'sort_order' => 300,
+                ]
+            );
+
+            $this->createAccount($laboratory->id, $equity->id, '3100', "Owner's / Company Equity", 'equity', 310);
+
+            // Income
+            $income = ChartOfAccount::firstOrCreate(
+                [
+                    'laboratory_id' => $laboratory->id,
+                    'code' => '4000',
+                ],
+                [
+                    'name' => 'Income',
+                    'type' => 'income',
+                    'is_system' => true,
+                    'is_active' => true,
+                    'sort_order' => 400,
+                ]
+            );
+
+            $this->createAccount($laboratory->id, $income->id, '4100', 'Laboratory Services', 'income', 410);
+            $this->createAccount($laboratory->id, $income->id, '4200', 'Other Income', 'income', 420);
+
+            // Expenses
+            $expenses = ChartOfAccount::firstOrCreate(
+                [
+                    'laboratory_id' => $laboratory->id,
+                    'code' => '5000',
+                ],
+                [
+                    'name' => 'Expenses',
+                    'type' => 'expense',
+                    'is_system' => true,
+                    'is_active' => true,
+                    'sort_order' => 500,
+                ]
+            );
+
+            $this->createAccount($laboratory->id, $expenses->id, '5100', 'Salaries', 'expense', 510);
+            $this->createAccount($laboratory->id, $expenses->id, '5200', 'Reagents & Laboratory Supplies', 'expense', 520);
+            $this->createAccount($laboratory->id, $expenses->id, '5300', 'Transport & Logistics', 'expense', 530);
+            $this->createAccount($laboratory->id, $expenses->id, '5400', 'Utilities', 'expense', 540);
+            $this->createAccount($laboratory->id, $expenses->id, '5500', 'Repairs & Maintenance', 'expense', 550);
+            $this->createAccount($laboratory->id, $expenses->id, '5600', 'Stationery', 'expense', 560);
+            $this->createAccount($laboratory->id, $expenses->id, '5700', 'Other Expenses', 'expense', 570);
+            $this->createAccount($laboratory->id, $expenses->id, '5800', 'Depreciation Expense', 'expense', 580);
+        }
+    }
+
+    private function createAccount(
+        int $laboratoryId,
+        int $parentId,
+        string $code,
+        string $name,
+        string $type,
+        int $sortOrder
+    ): ChartOfAccount {
+        return ChartOfAccount::firstOrCreate(
+            [
+                'laboratory_id' => $laboratoryId,
+                'code' => $code,
+            ],
+            [
+                'parent_id' => $parentId,
+                'name' => $name,
+                'type' => $type,
+                'is_system' => true,
+                'is_active' => true,
+                'sort_order' => $sortOrder,
+            ]
+        );
+    }
+}
+
+//create test request
+
+<?php
+
+namespace App\Actions;
+
+use App\Models\TestRequest;
+use App\Models\TestType;
+use App\Services\TestRequestCalculator;
+use App\Services\TrackingCodeGenerator;
+use Illuminate\Support\Facades\DB;
+use App\Models\TestRequestItem;
+use App\Models\ChartOfAccount;
+use App\Services\JournalEntryService;
+
+class CreateTestRequest
+{
+    public function __construct(
+        protected TrackingCodeGenerator $trackingCodeGenerator,
+        protected TestRequestCalculator $calculator,
+          protected JournalEntryService $journalEntryService
+    ) {
+    }
+
+    /**
+     * Create a Test Request with its items.
+     */
+  public function execute(array $data): TestRequest
+{
+    return DB::transaction(function () use ($data) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Calculate Total
+        |--------------------------------------------------------------------------
+        */
+
+        $totalAmount = $this->calculator->calculate($data['items']);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Fetch All Test Types (Avoid N+1 Queries)
+        |--------------------------------------------------------------------------
+        */
+
+        $testTypes = TestType::whereIn(
+            'id',
+            collect($data['items'])->pluck('test_type_id')
+        )
+        ->get()
+        ->keyBy('id');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Test Request
+        |--------------------------------------------------------------------------
+        */
+
+        $testRequest = TestRequest::create([
+            'laboratory_id' => auth()->user()->laboratory_id,
+             'branch_id' => auth()->user()->branch_id,
+            'patient_id' => $data['patient_id'],
+            'tracking_code' => $this->trackingCodeGenerator->generate(),
+            'total_amount' => $totalAmount,
+            'remarks' => $data['remarks'] ?? null,
+            'overall_status' => TestRequest::STATUS_PENDING,
+            'requested_by' => auth()->id(),
+        ]);
+
+        $receivableAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
+    ->where('code', '1300')
+    ->firstOrFail();
+
+$incomeAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
+    ->where('code', '4100')
+    ->firstOrFail();
+
+$this->journalEntryService->create([
+    'laboratory_id' => $testRequest->laboratory_id,
+    'branch_id' => $testRequest->branch_id,
+    'entry_date' => $testRequest->created_at->toDateString(),
+    'reference' => 'TR-' . $testRequest->id,
+    'description' => 'Laboratory service billed',
+    'source_type' => TestRequest::class,
+    'source_id' => $testRequest->id,
+    'created_by' => auth()->id(),
+    'status' => 'posted',
+    'posted_at' => now(),
+], [
+    [
+        'account_id' => $receivableAccount->id,
+        'debit' => $totalAmount,
+        'credit' => 0,
+        'description' => 'Amount receivable from patient',
+    ],
+    [
+        'account_id' => $incomeAccount->id,
+        'debit' => 0,
+        'credit' => $totalAmount,
+        'description' => 'Laboratory service income',
+    ],
+]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Test Request Items
+        |--------------------------------------------------------------------------
+        */
+
+        foreach ($data['items'] as $item) {
+
+            $testType = $testTypes->get($item['test_type_id']);
+
+            $testRequest->items()->create([
+                'test_type_id' => $testType->id,
+                'test_name'    => $testType->name,
+                'price'        => $item['price'],
+
+                'status'         => TestRequestItem::STATUS_PENDING,
+                'sample_status'  => TestRequestItem::SAMPLE_PENDING,
+                'result_status'  => TestRequestItem::RESULT_NOT_READY,
+            ]);
         }
 
-        return view('patient.result', compact('testRequest'));
-    }
-
-  public function download(string $trackingCode, Result $result)
-{
-    $testRequest = TestRequest::where('tracking_code', $trackingCode)
-        ->firstOrFail();
-
-    $result->loadMissing([
-        'testRequestItem.testRequest',
-    ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Security Check
-    |--------------------------------------------------------------------------
-    |
-    | Make sure this result actually belongs to the test request
-    | represented by the tracking code.
-    |
-    */
-
-    if (
-        !$result->testRequestItem ||
-        $result->testRequestItem->test_request_id !== $testRequest->id
-    ) {
-        abort(403, 'Unauthorized access to this result.');
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Result File
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        !$result->pdf_path ||
-        !Storage::disk('private')->exists($result->pdf_path)
-    ) {
-        abort(404, 'Result file not found.');
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Download
-    |--------------------------------------------------------------------------
-    */
-
-    $fileName = Str::slug(
-        $result->testRequestItem->test_name
-    ) . '-result.pdf';
-
-    return response()->download(
-        Storage::disk('private')->path($result->pdf_path),
-        $fileName,
-        [
-            'Content-Type' => 'application/pdf',
-        ]
-    );
-}
-
-public function view(string $trackingCode, Result $result)
-{
-    $testRequest = TestRequest::where('tracking_code', $trackingCode)
-        ->firstOrFail();
-
-    $result->loadMissing([
-        'testRequestItem.testRequest',
-    ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Security Check
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        !$result->testRequestItem ||
-        $result->testRequestItem->test_request_id !== $testRequest->id
-    ) {
-        abort(403, 'Unauthorized access to this result.');
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Result File
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        !$result->pdf_path ||
-        !Storage::disk('private')->exists($result->pdf_path)
-    ) {
-        abort(404, 'Result file not found.');
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Display PDF in Browser
-    |--------------------------------------------------------------------------
-    */
-
-    return response()->file(
-        Storage::disk('private')->path($result->pdf_path),
-        [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' .
-                basename($result->pdf_path) . '"',
-        ]
-    );
+        return $testRequest->load([
+            'patient',
+            'items.testType',
+            'requestedBy',
+        ]);
+    });
 }
 }
 
-
-// result index
-
-<x-app-layout>
-
-    <x-slot name="header">
-
-        <div>
-            <h2 class="font-semibold text-xl text-slate-300 leading-tight">
-                Results
-            </h2>
-
-            <p class="text-sm text-slate-400 mt-1">
-                Manage uploaded laboratory results
-            </p>
-        </div>
-
-    </x-slot>
-
-
-    <div class="py-8">
-
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-
-            {{-- Filters --}}
-            <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-sm mb-6">
-
-                <div class="p-5">
-
-                    <form
-                        method="GET"
-                        action="{{ route('results.index') }}"
-                        class="grid grid-cols-1 md:grid-cols-4 gap-4"
-                    >
-
-                        {{-- Search --}}
-                        <div class="md:col-span-2">
-
-                            <label
-                                for="search"
-                                class="block text-sm font-medium text-slate-300 mb-1"
-                            >
-                                Search
-                            </label>
-
-                            <input
-                                type="text"
-                                id="search"
-                                name="search"
-                                value="{{ request('search') }}"
-                                placeholder="Patient, patient number, test or tracking code..."
-                                class="w-full rounded-lg
-                                       bg-slate-800
-                                       border-slate-700
-                                       text-slate-200
-                                       placeholder-slate-500
-                                       focus:border-indigo-500
-                                       focus:ring-indigo-500"
-                            >
-
-                        </div>
-
-
-                        {{-- Status --}}
-                        <div>
-
-                            <label
-                                for="status"
-                                class="block text-sm font-medium text-slate-300 mb-1"
-                            >
-                                Verification Status
-                            </label>
-
-                            <select
-                                id="status"
-                                name="status"
-                                class="w-full rounded-lg
-                                       bg-slate-800
-                                       border-slate-700
-                                       text-slate-200
-                                       focus:border-indigo-500
-                                       focus:ring-indigo-500"
-                            >
-
-                                <option value="">All Results</option>
-
-                                <option
-                                    value="verified"
-                                    {{ request('status') === 'verified' ? 'selected' : '' }}
-                                >
-                                    Verified
-                                </option>
-
-                                <option
-                                    value="pending"
-                                    {{ request('status') === 'pending' ? 'selected' : '' }}
-                                >
-                                    Awaiting Verification
-                                </option>
-
-                            </select>
-
-                        </div>
-
-
-                        {{-- Buttons --}}
-                        <div class="flex items-end gap-2">
-
-                            <button
-                                type="submit"
-                                class="px-4 py-2 rounded-lg
-                                       bg-indigo-600
-                                       text-white
-                                       text-sm font-semibold
-                                       hover:bg-indigo-700
-                                       transition"
-                            >
-                                Search
-                            </button>
-
-                            <a
-                                href="{{ route('results.index') }}"
-                                class="px-4 py-2 rounded-lg
-                                       bg-slate-800
-                                       border border-slate-700
-                                       text-slate-300
-                                       text-sm font-semibold
-                                       hover:bg-slate-700
-                                       hover:text-white
-                                       transition"
-                            >
-                                Reset
-                            </a>
-
-                        </div>
-
-                    </form>
-
-                </div>
-
-            </div>
-
-
-            {{-- Results Table --}}
-            <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-sm overflow-hidden">
-
-                <div class="overflow-x-auto">
-
-                    <table class="min-w-full divide-y divide-slate-800">
-
-                        <thead class="bg-slate-800/70">
-
-                            <tr>
-
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    Patient
-                                </th>
-
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    Tracking Code
-                                </th>
-
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    Test
-                                </th>
-
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    Uploaded
-                                </th>
-
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    Status
-                                </th>
-
-                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    Actions
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-
-                        <tbody class="divide-y divide-slate-800">
-
-                            @forelse($results as $result)
-
-                                <tr class="hover:bg-slate-800/40 transition">
-
-                                    {{-- Patient --}}
-                                    <td class="px-6 py-4">
-
-                                        <div class="font-medium text-slate-200">
-                                            {{ $result->testRequestItem->testRequest->patient->full_name }}
-                                        </div>
-
-                                        <div class="text-xs text-slate-500 mt-1">
-                                            {{ $result->testRequestItem->testRequest->patient->patient_number }}
-                                        </div>
-
-                                    </td>
-
-
-                                    {{-- Tracking Code --}}
-                                    <td class="px-6 py-4">
-
-                                        <span class="text-sm text-slate-300">
-                                            {{ $result->testRequestItem->testRequest->tracking_code }}
-                                        </span>
-
-                                    </td>
-
-
-                                    {{-- Test --}}
-                                    <td class="px-6 py-4">
-
-                                        <span class="text-sm text-slate-300">
-                                            {{ $result->testRequestItem->test_name }}
-                                        </span>
-
-                                    </td>
-
-
-                                    {{-- Uploaded --}}
-                                    <td class="px-6 py-4">
-
-                                        <div class="text-sm text-slate-300">
-                                            {{ $result->uploaded_at?->format('d M Y') ?? 'N/A' }}
-                                        </div>
-
-                                        <div class="text-xs text-slate-500 mt-1">
-                                            {{ $result->uploaded_at?->format('h:i A') }}
-                                        </div>
-
-                                    </td>
-
-
-                                    {{-- Status --}}
-                                    <td class="px-6 py-4">
-
-                                        @if($result->verified_at)
-
-                                            <span class="inline-flex items-center rounded-full
-                                                         bg-green-900/30
-                                                         px-3 py-1
-                                                         text-xs font-semibold
-                                                         text-green-400
-                                                         ring-1 ring-green-700">
-
-                                                ✓ Verified
-
-                                            </span>
-
-                                        @else
-
-                                            <span class="inline-flex items-center rounded-full
-                                                         bg-yellow-900/30
-                                                         px-3 py-1
-                                                         text-xs font-semibold
-                                                         text-yellow-400
-                                                         ring-1 ring-yellow-700">
-
-                                                Awaiting Verification
-
-                                            </span>
-
-                                        @endif
-
-                                    </td>
-
-
-                                    {{-- Actions --}}
-                                    <td class="px-6 py-4">
-
-                                        <div class="flex flex-wrap justify-end gap-2">
-
-                                            {{-- Download --}}
-                                            <a
-                                                href="{{ route('results.download', $result) }}"
-                                                class="rounded-lg
-                                                       bg-slate-700
-                                                       px-3 py-2
-                                                       text-xs font-semibold
-                                                       text-slate-200
-                                                       hover:bg-slate-600
-                                                       transition"
-                                            >
-                                                Download
-                                            </a>
-
-
-                                            {{-- Verify --}}
-                                            @if(!$result->verified_at)
-
-                                                <form
-                                                    action="{{ route('results.verify', $result) }}"
-                                                    method="POST"
-                                                >
-                                                    @csrf
-                                                    @method('PATCH')
-
-                                                    <button
-                                                        type="submit"
-                                                        class="rounded-lg
-                                                               bg-green-600
-                                                               px-3 py-2
-                                                               text-xs font-semibold
-                                                               text-white
-                                                               hover:bg-green-700
-                                                               transition"
-                                                    >
-                                                        Verify
-                                                    </button>
-
-                                                </form>
-
-                                            @endif
-
-
-                                            {{-- Replace --}}
-                                            <a
-                                                href="{{ route('results.edit', $result) }}"
-                                                class="rounded-lg
-                                                       bg-amber-600
-                                                       px-3 py-2
-                                                       text-xs font-semibold
-                                                       text-white
-                                                       hover:bg-amber-700
-                                                       transition"
-                                            >
-                                                Replace
-                                            </a>
-
-                                        </div>
-
-                                    </td>
-
-                                </tr>
-
-                            @empty
-
-                                <tr>
-
-                                    <td
-                                        colspan="6"
-                                        class="px-6 py-12 text-center"
-                                    >
-
-                                        <div class="text-slate-500">
-                                            No laboratory results found.
-                                        </div>
-
-                                        @if(request()->hasAny(['search', 'status']))
-
-                                            <a
-                                                href="{{ route('results.index') }}"
-                                                class="inline-block mt-3 text-sm text-indigo-400 hover:text-indigo-300"
-                                            >
-                                                Clear filters
-                                            </a>
-
-                                        @endif
-
-                                    </td>
-
-                                </tr>
-
-                            @endforelse
-
-                        </tbody>
-
-                    </table>
-
-                </div>
-
-
-                {{-- Pagination --}}
-                @if($results->hasPages())
-
-                    <div class="border-t border-slate-800 px-6 py-4">
-
-                        {{ $results->links() }}
-
-                    </div>
-
-                @endif
-
-            </div>
-
-        </div>
-
-    </div>
-
-</x-app-layout>

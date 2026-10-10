@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
+use App\Services\ChartOfAccountsService;
 
 class RegisteredUserController extends Controller
 {
@@ -31,11 +32,14 @@ class RegisteredUserController extends Controller
    /**
  * Handle an incoming registration request.
  */
-public function store(RegisterLaboratoryRequest $request): RedirectResponse
+public function store(
+    RegisterLaboratoryRequest $request,
+    ChartOfAccountsService $chartOfAccountsService
+): RedirectResponse
 {
     $data = $request->validated();
 
-    $user = DB::transaction(function () use ($data) {
+    $user = DB::transaction(function () use ($data, $chartOfAccountsService) {
 
         /*
         |--------------------------------------------------------------------------
@@ -59,7 +63,7 @@ public function store(RegisterLaboratoryRequest $request): RedirectResponse
             'timezone' => $data['timezone'],
             'is_active' => true,
         ]);
-
+         $chartOfAccountsService->initializeFor($laboratory);
         /*
         |--------------------------------------------------------------------------
         | Create Administrator

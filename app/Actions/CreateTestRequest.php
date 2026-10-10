@@ -9,6 +9,7 @@ use App\Services\TrackingCodeGenerator;
 use Illuminate\Support\Facades\DB;
 use App\Models\TestRequestItem;
 use App\Models\ChartOfAccount;
+use App\Models\Laboratory;
 use App\Services\JournalEntryService;
 
 class CreateTestRequest
@@ -16,115 +17,137 @@ class CreateTestRequest
     public function __construct(
         protected TrackingCodeGenerator $trackingCodeGenerator,
         protected TestRequestCalculator $calculator,
-          protected JournalEntryService $journalEntryService
+        protected JournalEntryService $journalEntryService
     ) {
     }
 
     /**
      * Create a Test Request with its items.
      */
-  public function execute(array $data): TestRequest
-{
-    return DB::transaction(function () use ($data) {
+    public function execute(array $data): TestRequest
+    {
+        return DB::transaction(function () use ($data) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | Calculate Total
-        |--------------------------------------------------------------------------
-        */
+            /*
+            |--------------------------------------------------------------------------
+            | Calculate Total
+            |--------------------------------------------------------------------------
+            */
 
-        $totalAmount = $this->calculator->calculate($data['items']);
+            $totalAmount = $this->calculator->calculate($data['items']);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Fetch All Test Types (Avoid N+1 Queries)
-        |--------------------------------------------------------------------------
-        */
+            /*
+            |--------------------------------------------------------------------------
+            | Fetch All Test Types (Avoid N+1 Queries)
+            |--------------------------------------------------------------------------
+            */
 
-        $testTypes = TestType::whereIn(
-            'id',
-            collect($data['items'])->pluck('test_type_id')
-        )
-        ->get()
-        ->keyBy('id');
+            $testTypes = TestType::whereIn(
+                'id',
+                collect($data['items'])->pluck('test_type_id')
+            )
+                ->get()
+                ->keyBy('id');
 
-        /*
-        |--------------------------------------------------------------------------
-        | Create Test Request
-        |--------------------------------------------------------------------------
-        */
+            /*
+            |--------------------------------------------------------------------------
+            | Create Test Request
+            |--------------------------------------------------------------------------
+            */
 
-        $testRequest = TestRequest::create([
-            'laboratory_id' => auth()->user()->laboratory_id,
-             'branch_id' => auth()->user()->branch_id,
-            'patient_id' => $data['patient_id'],
-            'tracking_code' => $this->trackingCodeGenerator->generate(),
-            'total_amount' => $totalAmount,
-            'remarks' => $data['remarks'] ?? null,
-            'overall_status' => TestRequest::STATUS_PENDING,
-            'requested_by' => auth()->id(),
-        ]);
-
-        $receivableAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
-    ->where('code', '1300')
-    ->firstOrFail();
-
-$incomeAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
-    ->where('code', '4100')
-    ->firstOrFail();
-
-$this->journalEntryService->create([
-    'laboratory_id' => $testRequest->laboratory_id,
-    'branch_id' => $testRequest->branch_id,
-    'entry_date' => $testRequest->created_at->toDateString(),
-    'reference' => 'TR-' . $testRequest->id,
-    'description' => 'Laboratory service billed',
-    'source_type' => TestRequest::class,
-    'source_id' => $testRequest->id,
-    'created_by' => auth()->id(),
-    'status' => 'posted',
-    'posted_at' => now(),
-], [
-    [
-        'account_id' => $receivableAccount->id,
-        'debit' => $totalAmount,
-        'credit' => 0,
-        'description' => 'Amount receivable from patient',
-    ],
-    [
-        'account_id' => $incomeAccount->id,
-        'debit' => 0,
-        'credit' => $totalAmount,
-        'description' => 'Laboratory service income',
-    ],
-]);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Create Test Request Items
-        |--------------------------------------------------------------------------
-        */
-
-        foreach ($data['items'] as $item) {
-
-            $testType = $testTypes->get($item['test_type_id']);
-
-            $testRequest->items()->create([
-                'test_type_id' => $testType->id,
-                'test_name'    => $testType->name,
-                'price'        => $item['price'],
-
-                'status'         => TestRequestItem::STATUS_PENDING,
-                'sample_status'  => TestRequestItem::SAMPLE_PENDING,
-                'result_status'  => TestRequestItem::RESULT_NOT_READY,
+            $testRequest = TestRequest::create([
+                'laboratory_id' => auth()->user()->laboratory_id,
+                'branch_id' => auth()->user()->branch_id,
+                'patient_id' => $data['patient_id'],
+                'tracking_code' => $this->trackingCodeGenerator->generate(),
+                'total_amount' => $totalAmount,
+                'remarks' => $data['remarks'] ?? null,
+                'overall_status' => TestRequest::STATUS_PENDING,
+                'requested_by' => auth()->id(),
             ]);
-        }
 
-        return $testRequest->load([
-            'patient',
-            'items.testType',
-            'requestedBy',
-        ]);
-    });
-}
+            /*
+            |--------------------------------------------------------------------------
+            | Create Accounting Entry Only If Accounting Is Enabled
+            |--------------------------------------------------------------------------
+            */
+
+            $laboratory = Laboratory::findOrFail(
+                $testRequest->laboratory_id
+            );
+
+            if ($laboratory->hasModule('accounting')) {
+                $receivableAccount = ChartOfAccount::where(
+                    'laboratory_id',
+                    $testRequest->laboratory_id
+                )
+                    ->where('code', '1300')
+                    ->first();
+
+                $incomeAccount = ChartOfAccount::where(
+                    'laboratory_id',
+                    $testRequest->laboratory_id
+                )
+                    ->where('code', '4100')
+                    ->first();
+
+                if (!$receivableAccount || !$incomeAccount) {
+                    throw new \RuntimeException(
+                        'Accounting is enabled, but the required accounts 1300 and 4100 are missing. Initialize the chart of accounts for this laboratory.'
+                    );
+                }
+
+                $this->journalEntryService->create([
+                    'laboratory_id' => $testRequest->laboratory_id,
+                    'branch_id' => $testRequest->branch_id,
+                    'entry_date' => $testRequest->created_at->toDateString(),
+                    'reference' => 'TR-' . $testRequest->id,
+                    'description' => 'Laboratory service billed',
+                    'source_type' => TestRequest::class,
+                    'source_id' => $testRequest->id,
+                    'created_by' => auth()->id(),
+                    'status' => 'posted',
+                    'posted_at' => now(),
+                ], [
+                    [
+                        'account_id' => $receivableAccount->id,
+                        'debit' => $totalAmount,
+                        'credit' => 0,
+                        'description' => 'Amount receivable from patient',
+                    ],
+                    [
+                        'account_id' => $incomeAccount->id,
+                        'debit' => 0,
+                        'credit' => $totalAmount,
+                        'description' => 'Laboratory service income',
+                    ],
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Create Test Request Items
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($data['items'] as $item) {
+                $testType = $testTypes->get($item['test_type_id']);
+
+                $testRequest->items()->create([
+                    'test_type_id' => $testType->id,
+                    'test_name' => $testType->name,
+                    'price' => $item['price'],
+                    'status' => TestRequestItem::STATUS_PENDING,
+                    'sample_status' => TestRequestItem::SAMPLE_PENDING,
+                    'result_status' => TestRequestItem::RESULT_NOT_READY,
+                ]);
+            }
+
+            return $testRequest->load([
+                'patient',
+                'items.testType',
+                'requestedBy',
+            ]);
+        });
+    }
 }

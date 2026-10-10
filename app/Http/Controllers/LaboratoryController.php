@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Laboratory;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ChartOfAccountsService;
 class LaboratoryController extends Controller
 {
     
@@ -50,11 +51,15 @@ public function create()
 }
 
     
-   /**
+ 
+
+/**
  * Store a newly created laboratory in storage.
  */
-public function store(Request $request)
-{
+public function store(
+    Request $request,
+    ChartOfAccountsService $chartOfAccountsService
+) {
     $validated = $request->validate([
         'name'              => ['required', 'string', 'max:255'],
         'subdomain'         => ['required', 'alpha_dash', 'max:255', 'unique:laboratories,subdomain'],
@@ -69,23 +74,32 @@ public function store(Request $request)
         'is_active'         => ['nullable', 'boolean'],
     ]);
 
-    // Always store the subdomain in lowercase
+    // Always store the subdomain in lowercase.
     $validated['subdomain'] = strtolower($validated['subdomain']);
 
-    // Handle logo upload
+    // Handle logo upload.
     if ($request->hasFile('logo')) {
-        $validated['logo'] = $request->file('logo')->store('laboratories', 'public');
+        $validated['logo'] = $request->file('logo')->store(
+            'laboratories',
+            'public'
+        );
     }
 
-    // Checkbox handling
+    // Checkbox handling.
     $validated['is_active'] = $request->boolean('is_active');
 
-    Laboratory::create($validated);
+    // Create the laboratory.
+    $laboratory = Laboratory::create($validated);
+
+    // Automatically create its chart of accounts.
+    $chartOfAccountsService->initializeFor($laboratory);
 
     return redirect()
         ->route('laboratories.index')
         ->with('success', 'Laboratory created successfully.');
 }
+
+
 
     
    /**
