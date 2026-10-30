@@ -34,6 +34,38 @@ class PaymentController extends Controller
         return view('payments.index', compact('payments'));
     }
 
+    
+// public function index(Request $request): View
+// {
+//     $laboratoryId = auth()->user()->laboratory_id;
+
+//     $payments = Payment::query()
+//         ->with([
+//             'testRequest.patient',
+//             'receivedBy',
+//         ])
+//         ->forLaboratory($laboratoryId)
+//         ->latest('paid_at')
+//         ->paginate(15)
+//         ->withQueryString();
+
+//     $insuranceClaims = \App\Models\InsuranceClaim::query()
+//         ->with([
+//             'testRequest.patient',
+//             'payments',
+//         ])
+//         ->where('laboratory_id', $laboratoryId)
+//         ->latest()
+//         ->paginate(15, ['*'], 'insurance_page')
+//         ->withQueryString();
+
+//     return view('payments.index', compact(
+//         'payments',
+//         'insuranceClaims'
+//     ));
+// }
+
+
     /**
      * Show the payment form for a test request.
      */

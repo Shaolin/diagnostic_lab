@@ -208,11 +208,11 @@
 
 </div>
 
-@if ($item->result && $item->result->pdf_path)
+{{-- @if ($item->result && $item->result->pdf_path)
 
     <div class="mt-4 flex flex-col sm:flex-row gap-3">
 
-        {{-- View Result --}}
+        
        <a href="{{ route('patient.result.view', [
         'trackingCode' => $testRequest->tracking_code,
         'result' => $item->result->id
@@ -223,7 +223,7 @@
 </a>
 
 
-        {{-- Download Result --}}
+        
         <a href="{{ route('patient.result.download', [
         'trackingCode' => $testRequest->tracking_code,
         'result' => $item->result->id
@@ -234,7 +234,112 @@
 
     </div>
 
+@endif --}}
+
+
+@if ($item->result && $item->result->pdf_path && $item->result->verified_at)
+
+    {{-- PDF Result --}}
+    <div class="mt-4 flex flex-col sm:flex-row gap-3">
+
+        <a href="{{ route('patient.result.view', [
+            'trackingCode' => $testRequest->tracking_code,
+            'result' => $item->result->id
+        ]) }}"
+           target="_blank"
+           class="inline-flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition">
+            View Result
+        </a>
+
+        <a href="{{ route('patient.result.download', [
+            'trackingCode' => $testRequest->tracking_code,
+            'result' => $item->result->id
+        ]) }}"
+           class="inline-flex items-center justify-center px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition">
+            Download Result
+        </a>
+
+    </div>
+
+    {{-- Medical Images and Films --}}
+    @if ($item->medicalResultFiles->isNotEmpty())
+
+        <div class="mt-6 border-t border-slate-800 pt-5">
+
+            <h5 class="text-sm font-semibold text-white mb-4">
+                Medical Images / Films
+            </h5>
+
+            <div class="space-y-3">
+
+                @foreach ($item->medicalResultFiles as $medicalFile)
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-lg p-4">
+
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+                            <div>
+
+                                <p class="text-sm font-medium text-white">
+                                    {{ $medicalFile->original_name }}
+                                </p>
+
+                                <p class="text-xs text-blue-400 mt-1">
+                                    {{ $medicalFile->file_type }}
+                                </p>
+
+                                @if ($medicalFile->description)
+                                    <p class="text-xs text-slate-400 mt-2">
+                                        {{ $medicalFile->description }}
+                                    </p>
+                                @endif
+
+                            </div>
+
+                            <div class="flex flex-wrap gap-2">
+
+                                <a href="{{ route('patient.medical-file.view', [
+                                    'trackingCode' => $testRequest->tracking_code,
+                                    'medicalFile' => $medicalFile->id
+                                ]) }}"
+                                   target="_blank"
+                                   class="inline-flex items-center justify-center px-3 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition">
+                                    View File
+                                </a>
+
+                                <a href="{{ route('patient.medical-file.download', [
+                                    'trackingCode' => $testRequest->tracking_code,
+                                    'medicalFile' => $medicalFile->id
+                                ]) }}"
+                                   class="inline-flex items-center justify-center px-3 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition">
+                                    Download
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                @endforeach
+
+            </div>
+
+        </div>
+
+    @endif
+
+@elseif ($item->result && $item->result->pdf_path)
+
+    <div class="mt-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-3">
+        <p class="text-sm text-yellow-400">
+            Your result is awaiting verification and will be available once approved.
+        </p>
+    </div>
+
 @endif
+
+{{-- end --}}
 
                                         </div>
 

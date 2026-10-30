@@ -1,9 +1,8 @@
 <?php
-
 namespace App\Actions\Results;
 
+use App\Models\MedicalResultFile;
 use App\Models\Result;
-use App\Models\TestRequest;
 use App\Models\TestRequestItem;
 use App\Services\ResultStatusService;
 use Carbon\Carbon;
@@ -13,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 class UploadResult
 {
@@ -22,162 +22,198 @@ class UploadResult
     }
 
     /**
-     * Upload a laboratory result PDF.
+     * Upload a laboratory result PDF and optional medical files.
      */
     public function execute(
         TestRequestItem $item,
         UploadedFile $pdf,
-        ?string $remarks = null
+        ?string $remarks = null,
+        array $medicalFiles = [],
+        ?string $fileType = null,
+        ?string $description = null
     ): Result {
         $user = Auth::user();
 
-        // Load required relationships
         $item->loadMissing([
             'testRequest',
             'testType',
             'result',
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Business Rules
-        |--------------------------------------------------------------------------
-        */
-
-        // Same laboratory
-        if (
-            $item->testRequest->laboratory_id !== $user->laboratory_id
-        ) {
+        if (! $user || $item->testRequest->laboratory_id !== $user->laboratory_id) {
             throw new RuntimeException(
                 'You are not authorized to upload results for this laboratory.'
             );
         }
 
-        // Sample must be collected
         if (! $item->isSampleCollected()) {
-            throw new RuntimeException(
-                'The sample has not yet been collected.'
-            );
+            throw new RuntimeException('The sample has not yet been collected.');
         }
 
-        // Test must be completed
         if (! $item->isCompleted()) {
-            throw new RuntimeException(
-                'The laboratory test has not been completed.'
-            );
+            throw new RuntimeException('The laboratory test has not been completed.');
         }
 
-        // Only one result allowed
         if ($item->result()->exists()) {
             throw new RuntimeException(
                 'A result has already been uploaded for this test.'
             );
         }
 
-        return DB::transaction(function () use (
-            $item,
-            $pdf,
-            $remarks,
-            $user
-        ) {
+        if (! empty($medicalFiles)) {
+            $allowedTypes = ['X-ray', 'EEG', 'Ultrasound', 'Other'];
 
-            /*
-            |--------------------------------------------------------------------------
-            | Generate filename
-            |--------------------------------------------------------------------------
-            */
+            if (! in_array($fileType, $allowedTypes, true)) {
+                throw new RuntimeException('Invalid medical file category.');
+            }
+        }
 
-            $directory = 'results/'
-                . now()->format('Y')
-                . '/'
-                . now()->format('m');
+        $storedPaths = [];
 
-            $filename =
-                $item->testRequest->tracking_code
-                . '-'
-                . Str::slug($item->test_name)
-                . '-'
-                . now()->format('His')
-                . '.pdf';
+        try {
+            return DB::transaction(function () use (
+                $item,
+                $pdf,
+                $remarks,
+                $medicalFiles,
+                $fileType,
+                $description,
+                $user,
+                &$storedPaths
+            ) {
+                $directory = 'results/'
+                    . now()->format('Y')
+                    . '/'
+                    . now()->format('m');
 
-            /*
-            |--------------------------------------------------------------------------
-            | Store PDF
-            |--------------------------------------------------------------------------
-            */
+                $filename = $item->testRequest->tracking_code
+                    . '-'
+                    . Str::slug($item->test_name)
+                    . '-'
+                    . now()->format('His')
+                    . '.pdf';
 
-            // $path = Storage::disk('private')->putFileAs(
-            //     $directory,
-            //     $pdf,
-            //     $filename
-            // );
+                /*
+                 * Store the required PDF.
+                 */
+                $stream = fopen($pdf->getPathname(), 'rb');
 
+                if ($stream === false) {
+                    throw new RuntimeException(
+                        'Unable to read the uploaded result file.'
+                    );
+                }
 
+                try {
+                    $path = $directory . '/' . $filename;
 
-$stream = fopen($pdf->getPathname(), 'rb');
+                    $stored = Storage::disk('private')->put($path, $stream);
 
-if ($stream === false) {
-    throw new RuntimeException('Unable to read the uploaded result file.');
+                    if (! $stored) {
+                        throw new RuntimeException(
+                            'Unable to store the uploaded result file.'
+                        );
+                    }
+
+                    $storedPaths[] = $path;
+                } finally {
+                    fclose($stream);
+                }
+
+                /*
+                 * Create the PDF result record.
+                 */
+                $result = Result::create([
+                    'test_request_item_id' => $item->id,
+                    'uploaded_by' => $user->id,
+                    'verified_by' => null,
+                    'pdf_path' => $path,
+                    'remarks' => $remarks,
+                    'uploaded_at' => Carbon::now(),
+                    'verified_at' => null,
+                ]);
+
+                /*
+                 * Store optional medical images and films.
+                 */
+ foreach ($medicalFiles as $file) {
+
+    if (! $file instanceof UploadedFile || ! $file->isValid()) {
+        throw new RuntimeException(
+            'One of the uploaded medical files is invalid.'
+        );
+    }
+
+    $medicalDirectory = 'medical-results/'
+        . now()->format('Y')
+        . '/'
+        . now()->format('m');
+
+    // Generate a unique filename.
+    $extension = strtolower($file->getClientOriginalExtension());
+
+    $filename = Str::uuid() . '.' . $extension;
+
+    $medicalPath = $medicalDirectory . '/' . $filename;
+
+    // Open the actual temporary upload file.
+    $stream = fopen($file->getPathname(), 'rb');
+
+    if ($stream === false) {
+        throw new RuntimeException(
+            'Unable to read the uploaded medical file: '
+            . $file->getClientOriginalName()
+        );
+    }
+
+    try {
+        $stored = Storage::disk('private')->put(
+            $medicalPath,
+            $stream
+        );
+
+        if (! $stored) {
+            throw new RuntimeException(
+                'Unable to store the medical result file.'
+            );
+        }
+
+        $storedPaths[] = $medicalPath;
+
+    } finally {
+        fclose($stream);
+    }
+
+    MedicalResultFile::create([
+        'test_request_item_id' => $item->id,
+        'uploaded_by' => $user->id,
+        'file_path' => $medicalPath,
+        'original_name' => $file->getClientOriginalName(),
+        'file_type' => $fileType,
+        'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
+        'description' => $description,
+    ]);
 }
+                /*
+                 * Update workflow only after all files are stored.
+                 */
+                $this->statusService->markReady($item);
 
-// $path = Storage::disk('private')->put(
-//     $directory . '/' . $filename,
-//     $stream
-// );
+                $item->testRequest->update([
+                    'updated_by' => $user->id,
+                ]);
 
-$path = $directory . '/' . $filename;
-
-$stored = Storage::disk('private')->put(
-    $path,
-    $stream
-);
-
-if (! $stored) {
-    throw new RuntimeException(
-        'Unable to store the uploaded result file.'
-    );
-}
-
-fclose($stream);
-
-if ($path === false) {
-    throw new RuntimeException('Unable to store the uploaded result file.');
-}
+                return $result;
+            });
+        } catch (Throwable $exception) {
             /*
-            |--------------------------------------------------------------------------
-            | Create Result
-            |--------------------------------------------------------------------------
-            */
+             * Remove any files stored if the database transaction fails.
+             */
+            foreach ($storedPaths as $storedPath) {
+                Storage::disk('private')->delete($storedPath);
+            }
 
-            $result = Result::create([
-                'test_request_item_id' => $item->id,
-                'uploaded_by' => $user->id,
-                'verified_by' => null,
-                'pdf_path' => $path,
-                'remarks' => $remarks,
-                'uploaded_at' => Carbon::now(),
-                'verified_at' => null,
-            ]);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Update Workflow
-            |--------------------------------------------------------------------------
-            */
-
-            $this->statusService->markReady($item);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Audit
-            |--------------------------------------------------------------------------
-            */
-
-            $item->testRequest->update([
-                'updated_by' => $user->id,
-            ]);
-
-            return $result;
-        });
+            throw $exception;
+        }
     }
 }

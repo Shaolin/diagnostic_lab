@@ -231,7 +231,8 @@
 
             @endif
 
-            {{-- Payments --}}
+          
+{{-- Payments --}}
 
 @if(
     auth()->user()->isAdmin()
@@ -239,12 +240,29 @@
     || auth()->user()->hasPermission('payments')
 )
 
-     <a href="{{ route('payments.index') }}"
-               class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
-               {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
-                <span>💳</span>
-                Payments
-            </a>
+    <a href="{{ route('payments.index') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+       {{ request()->routeIs('payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+        <span>💳</span>
+        Payments
+    </a>
+
+@endif
+
+{{-- Insurance Payments --}}
+
+@if(
+    auth()->user()->isAdmin()
+    || auth()->user()->isAccountant()
+    || auth()->user()->hasPermission('payments')
+)
+
+    <a href="{{ route('insurance-claims.payments.index') }}"
+       class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition
+       {{ request()->routeIs('insurance-claims.payments.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+        <span>🛡️</span>
+        Insurance Payments
+    </a>
 
 @endif
 

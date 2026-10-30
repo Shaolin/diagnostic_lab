@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class TestRequest extends Model
 {
@@ -50,6 +51,11 @@ public const PAYMENT_PAID = 'Paid';
     public function branch(): BelongsTo
 {
     return $this->belongsTo(Branch::class);
+}
+
+public function insuranceClaim(): HasOne
+{
+    return $this->hasOne(InsuranceClaim::class);
 }
 
     public function patient(): BelongsTo

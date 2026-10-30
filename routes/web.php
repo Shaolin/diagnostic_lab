@@ -20,6 +20,8 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FixedAssetController;
 use App\Http\Controllers\FixedAssetDepreciationController;
 use App\Http\Controllers\GeneralLedgerController;
+use App\Http\Controllers\InsuranceClaimController;
+use App\Http\Controllers\InsuranceClaimPaymentController;
 use App\Http\Controllers\InventoryStockIssueController;
 use App\Http\Controllers\InventoryStockMovementController;
 use App\Http\Controllers\LaboratoryController;
@@ -81,6 +83,15 @@ Route::get('/track-result/{trackingCode}/result/{result}/download',
     '/track-result/{trackingCode}/result/{result}/view',
     [PatientTrackingController::class, 'view']
 )->name('patient.result.view');
+Route::get(
+    '/track-result/{trackingCode}/medical-file/{medicalFile}/view',
+    [PatientTrackingController::class, 'viewMedicalFile']
+)->name('patient.medical-file.view');
+
+Route::get(
+    '/track-result/{trackingCode}/medical-file/{medicalFile}/download',
+    [PatientTrackingController::class, 'downloadMedicalFile']
+)->name('patient.medical-file.download');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
@@ -214,6 +225,18 @@ Route::get(
         '{result}',
         [ResultController::class, 'update']
     )->name('update');
+
+    // View result
+Route::get(
+    '{result}',
+    [ResultController::class, 'show']
+)->name('show');
+
+// View PDF inline
+Route::get(
+    '{result}/view-pdf',
+    [ResultController::class, 'viewPdf']
+)->name('view-pdf');
 });
 
 
@@ -234,6 +257,51 @@ Route::middleware(['auth'])
         Route::get('/{payment}', [PaymentController::class, 'show'])
             ->name('show');
     });
+
+
+Route::middleware(['auth'])
+    ->prefix('insurance-claims')
+    ->name('insurance-claims.')
+    ->group(function () {
+
+        Route::get('/payments', [
+            InsuranceClaimController::class,
+            'paymentsIndex'
+        ])->name('payments.index');
+
+        Route::get('/', [
+            InsuranceClaimController::class,
+            'index'
+        ])->name('index');
+
+        Route::get(
+            '/create/{testRequest}',
+            [InsuranceClaimController::class, 'create']
+        )->name('create');
+
+        Route::post(
+            '/{testRequest}',
+            [InsuranceClaimController::class, 'store']
+        )->name('store');
+
+        Route::get(
+            '/{insuranceClaim}/payments/create',
+            [InsuranceClaimPaymentController::class, 'create']
+        )->name('payments.create');
+
+        Route::post(
+            '/{insuranceClaim}/payments',
+            [InsuranceClaimPaymentController::class, 'store']
+        )->name('payments.store');
+
+        Route::get(
+            '/{insuranceClaim}',
+            [InsuranceClaimController::class, 'show']
+        )->name('show');
+
+    });
+
+
 
     Route::get('/reports', [ReportController::class, 'index'])
     ->name('reports.index');

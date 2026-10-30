@@ -9,6 +9,7 @@ use App\Actions\Results\VerifyResult;
 use App\Models\Result;
 use App\Models\TestRequestItem;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ResultController extends Controller
 {
@@ -93,47 +94,59 @@ public function index(Request $request)
     /**
      * Upload a laboratory result.
      */
-    public function store(
-        Request $request,
-        TestRequestItem $testRequestItem,
-        UploadResult $uploadResult
-    ) {
-        abort_if(
-            $testRequestItem->testRequest->laboratory_id
-                !== auth()->user()->laboratory_id,
-            403
+  
+
+public function store(
+    Request $request,
+    TestRequestItem $testRequestItem,
+    UploadResult $uploadResult
+) {
+    abort_if(
+        $testRequestItem->testRequest->laboratory_id
+            !== auth()->user()->laboratory_id,
+        403
+    );
+
+    $validated = $request->validate([
+        'pdf' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+        'remarks' => ['nullable', 'string', 'max:2000'],
+
+        'medical_files' => ['nullable', 'array', 'max:10'],
+        'medical_files.*' => [
+            'file',
+            'mimes:jpg,jpeg,png,pdf',
+            'max:10240',
+        ],
+
+        'file_type' => [
+            'required_with:medical_files',
+            'nullable',
+            'in:X-ray,EEG,Ultrasound,Other',
+        ],
+
+        'description' => ['nullable', 'string', 'max:1000'],
+    ]);
+
+  
+
+    $uploadResult->execute(
+        $testRequestItem,
+        $validated['pdf'],
+        $validated['remarks'] ?? null,
+        $validated['medical_files'] ?? [],
+        $validated['file_type'] ?? null,
+        $validated['description'] ?? null
+    );
+
+    return redirect()
+        ->route('test-requests.show', $testRequestItem->testRequest)
+        ->with(
+            'success',
+            'Result PDF and any medical files uploaded successfully.'
         );
+}
 
-        $validated = $request->validate([
-            'pdf' => [
-                'required',
-                'file',
-                'mimes:pdf',
-                'max:10240',
-            ],
-            'remarks' => [
-                'nullable',
-                'string',
-                'max:2000',
-            ],
-        ]);
 
-        $uploadResult->execute(
-            $testRequestItem,
-            $validated['pdf'],
-            $validated['remarks'] ?? null
-        );
-
-        return redirect()
-            ->route(
-                'test-requests.show',
-                $testRequestItem->testRequest
-            )
-            ->with(
-                'success',
-                'Result uploaded successfully.'
-            );
-    }
 
     /**
      * Download a laboratory result.
@@ -195,10 +208,14 @@ public function index(Request $request)
     }
 
     // Generate the patient's secure result-view link
-    $resultUrl = route('patient.result.view', [
-        'trackingCode' => $result->testRequestItem->testRequest->tracking_code,
-        'result' => $result->id,
-    ]);
+    // $resultUrl = route('patient.result.view', [
+    //     'trackingCode' => $result->testRequestItem->testRequest->tracking_code,
+    //     'result' => $result->id,
+    // ]);
+
+    $resultUrl = route('patient.track.search', [
+    'tracking_code' => $result->testRequestItem->testRequest->tracking_code,
+]);
 
     $laboratory = auth()->user()->laboratory;
 
@@ -279,4 +296,52 @@ public function index(Request $request)
                 'Result replaced successfully. The new result must be verified again.'
             );
     }
+//show reuslt
+    public function show(Result $result)
+{
+    $result->load([
+        'testRequestItem.testRequest.patient',
+        'testRequestItem.medicalResultFiles',
+        'testRequestItem.testType',
+        'uploadedBy',
+        'verifiedBy',
+    ]);
+
+    // Ensure the result belongs to the logged-in laboratory.
+    abort_if(
+        $result->testRequestItem->testRequest->laboratory_id
+            !== auth()->user()->laboratory_id,
+        403
+    );
+
+    return view('results.show', compact('result'));
+}
+
+public function viewPdf(Result $result)
+{
+    $result->load('testRequestItem.testRequest');
+
+    // Confirm that the result belongs to the logged-in laboratory.
+    abort_if(
+        $result->testRequestItem->testRequest->laboratory_id
+            !== auth()->user()->laboratory_id,
+        403
+    );
+
+    if (
+        ! $result->pdf_path ||
+        ! Storage::disk('private')->exists($result->pdf_path)
+    ) {
+        abort(404, 'Result PDF not found.');
+    }
+
+    return response()->file(
+        Storage::disk('private')->path($result->pdf_path),
+        [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline',
+            'X-Content-Type-Options' => 'nosniff',
+        ]
+    );
+}
 }

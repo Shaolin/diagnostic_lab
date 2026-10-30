@@ -1,548 +1,1031 @@
 <?php
 
-namespace App\Http\Controllers\Auth;
-use App\Http\Controllers\Controller;
-use App\Enums\UserRole;
-use App\Http\Requests\RegisterLaboratoryRequest;
-use App\Models\Laboratory;
-use App\Models\User;
-use Illuminate\Auth\Events\Registered;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\View\View;
-use App\Services\ChartOfAccountsService;
+namespace App\Http\Controllers;
 
-class RegisteredUserController extends Controller
+use App\Actions\Results\DownloadResult;
+use App\Actions\Results\ReplaceResult;
+use App\Actions\Results\UploadResult;
+use App\Actions\Results\VerifyResult;
+use App\Models\Result;
+use App\Models\TestRequestItem;
+use Illuminate\Http\Request;
+
+class ResultController extends Controller
 {
+
+/**
+ * Display a listing of laboratory results.
+ */
+public function index(Request $request)
+{
+    $laboratoryId = auth()->user()->laboratory_id;
+
+    $results = Result::query()
+        ->with([
+            'testRequestItem.testRequest.patient',
+            'testRequestItem.testType',
+            'uploadedBy',
+            'verifiedBy',
+        ])
+        ->whereHas('testRequestItem.testRequest', function ($query) use ($laboratoryId) {
+            $query->where('laboratory_id', $laboratoryId);
+
+            // Staff can only see results from their own branch.
+            if (auth()->user()->isStaff()) {
+                $query->where(
+                    'branch_id',
+                    auth()->user()->branch_id
+                );
+            }
+        })
+        ->when($request->search, function ($query, $search) {
+            $query->where(function ($query) use ($search) {
+                $query
+                    ->whereHas('testRequestItem', function ($query) use ($search) {
+                        $query->where('test_name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('testRequestItem.testRequest', function ($query) use ($search) {
+                        $query->where('tracking_code', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('testRequestItem.testRequest.patient', function ($query) use ($search) {
+                        $query->where('first_name', 'like', "%{$search}%")
+                              ->orWhere('last_name', 'like', "%{$search}%")
+                              ->orWhere('other_names', 'like', "%{$search}%")
+                              ->orWhere('patient_number', 'like', "%{$search}%");
+                    });
+            });
+        })
+        ->when($request->status === 'verified', function ($query) {
+            $query->whereNotNull('verified_at');
+        })
+        ->when($request->status === 'pending', function ($query) {
+            $query->whereNull('verified_at');
+        })
+        ->latest('uploaded_at')
+        ->paginate(15)
+        ->withQueryString();
+
+    return view('results.index', compact('results'));
+}
     /**
-     * Display the registration view.
+     * Show the result upload form.
      */
-    public function create(): View
+    public function create(TestRequestItem $testRequestItem)
     {
-        return view('auth.register');
+        abort_if(
+            $testRequestItem->testRequest->laboratory_id
+                !== auth()->user()->laboratory_id,
+            403
+        );
+
+        $testRequestItem->load([
+            'testRequest.patient',
+            'testType',
+            'result',
+        ]);
+
+        return view(
+            'results.create',
+            compact('testRequestItem')
+        );
     }
 
     /**
-     * Handle an incoming registration request.
-     *
-     * @throws ValidationException
+     * Upload a laboratory result.
      */
-   /**
- * Handle an incoming registration request.
- */
-public function store(RegisterLaboratoryRequest $request): RedirectResponse
+    public function store(
+        Request $request,
+        TestRequestItem $testRequestItem,
+        UploadResult $uploadResult
+    ) {
+        abort_if(
+            $testRequestItem->testRequest->laboratory_id
+                !== auth()->user()->laboratory_id,
+            403
+        );
+
+        $validated = $request->validate([
+            'pdf' => [
+                'required',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
+            'remarks' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+        ]);
+
+        $uploadResult->execute(
+            $testRequestItem,
+            $validated['pdf'],
+            $validated['remarks'] ?? null
+        );
+
+        return redirect()
+            ->route(
+                'test-requests.show',
+                $testRequestItem->testRequest
+            )
+            ->with(
+                'success',
+                'Result uploaded successfully.'
+            );
+    }
+
+    /**
+     * Download a laboratory result.
+     */
+    public function download(
+        Result $result,
+        DownloadResult $downloadResult
+    ) {
+        return $downloadResult->execute($result);
+    }
+
+    /**
+     * Verify a laboratory result.
+     */
+    public function verify(
+        Result $result,
+        VerifyResult $verifyResult
+    ) {
+        $verifyResult->execute($result);
+
+        return redirect()
+            ->back()
+            ->with(
+                'success',
+                'Result verified successfully.'
+            );
+    }
+
+    public function sendWhatsapp(Result $result)
 {
-    $data = $request->validated();
+    $result->load([
+        'testRequestItem.testRequest.patient',
+        'testRequestItem.testType',
+    ]);
 
-    $user = DB::transaction(function () use ($data) {
+    // Make sure the result belongs to the logged-in laboratory
+    abort_if(
+        $result->testRequestItem->testRequest->laboratory_id !== auth()->user()->laboratory_id,
+        403
+    );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Create Laboratory
-        |--------------------------------------------------------------------------
-        */
+    // Only verified results can be sent to patients
+    if (!$result->verified_at) {
+        return redirect()->back()->with('error', 'This result must be verified before it can be sent via WhatsApp.');
+    }
 
-        $laboratory = Laboratory::create([
-            'name' => $data['laboratory_name'],
+    $patient = $result->testRequestItem->testRequest->patient;
 
-            // Temporary placeholder.
-            // Later this will come from the registration link.
-            'subdomain' => 'temporary-' . uniqid(),
+    // Patient must have a phone number
+    if (!$patient->phone) {
+        return redirect()->back()->with('error', 'This patient does not have a phone number.');
+    }
 
-            'phone' => $data['phone'] ?? null,
-            'email' => $data['laboratory_email'] ?? null,
-            'address' => $data['address'] ?? null,
-            'country' => $data['country'] ?? null,
-            'currency_code' => $data['currency_code'],
-            'currency_symbol' => $data['currency_symbol'],
-            'timezone' => $data['timezone'],
-            'is_active' => true,
+    // Convert Nigerian phone number to international format
+    $phone = preg_replace('/\D/', '', $patient->phone);
+
+    if (str_starts_with($phone, '0')) {
+        $phone = '234' . substr($phone, 1);
+    }
+
+    // Generate the patient's secure result-view link
+    $resultUrl = route('patient.result.view', [
+        'trackingCode' => $result->testRequestItem->testRequest->tracking_code,
+        'result' => $result->id,
+    ]);
+
+    $laboratory = auth()->user()->laboratory;
+
+    $message = "🧪 {$laboratory->name}\n\n"
+        . "Hello {$patient->full_name}, your laboratory result is now ready.\n\n"
+        . "You can securely view your result here:\n"
+        . "{$resultUrl}\n\n"
+        . "Thank you for choosing {$laboratory->name}.";
+
+    return redirect(
+        'https://wa.me/' . $phone . '?text=' . urlencode($message)
+    );
+}
+
+    /**
+     * Show the result replacement form.
+     */
+    public function edit(Result $result)
+    {
+        abort_if(
+            $result->testRequestItem->testRequest->laboratory_id
+                !== auth()->user()->laboratory_id,
+            403
+        );
+
+        $result->load([
+            'testRequestItem.testRequest.patient',
+            'testRequestItem.testType',
+        ]);
+
+        return view(
+            'results.edit',
+            compact('result')
+        );
+    }
+
+    /**
+     * Replace an existing laboratory result.
+     */
+    public function update(
+        Request $request,
+        Result $result,
+        ReplaceResult $replaceResult
+    ) {
+        abort_if(
+            $result->testRequestItem->testRequest->laboratory_id
+                !== auth()->user()->laboratory_id,
+            403
+        );
+
+        $validated = $request->validate([
+            'pdf' => [
+                'required',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
+            'remarks' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+        ]);
+
+        $replaceResult->execute(
+            $result,
+            $validated['pdf'],
+            $validated['remarks'] ?? null
+        );
+
+        return redirect()
+            ->route(
+                'test-requests.show',
+                $result->testRequestItem->testRequest
+            )
+            ->with(
+                'success',
+                'Result replaced successfully. The new result must be verified again.'
+            );
+    }
+}
+
+
+// result create
+
+<x-app-layout>
+
+    <x-slot name="header">
+        <div class="flex items-center justify-between">
+            <div>
+               
+
+  <h2 class="text-xl font-semibold text-white">
+                    Upload Result
+                </h2>
+
+                <p class="text-sm text-slate-400 mt-1">
+                    {{ $testRequestItem->test_name }}
+                    — {{ $testRequestItem->testRequest->tracking_code }}
+                </p>
+            </div>
+
+            <a
+                href="{{ route('test-requests.show', $testRequestItem->testRequest) }}"
+                class="text-sm text-slate-400 hover:text-white transition"
+            >
+                ← Back to Test Request
+            </a>
+        </div>
+    </x-slot>
+
+    <div class="py-8">
+        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+
+            {{-- Patient Information --}}
+            <div class="bg-slate-900 border border-slate-800 shadow-sm sm:rounded-xl mb-6">
+                <div class="p-6">
+
+                    <h3 class="text-lg font-semibold text-white mb-5">
+                        Patient Information
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                        <div>
+                            <p class="text-sm text-slate-500">
+                                Patient
+                            </p>
+
+                            <p class="mt-1 font-medium text-slate-200">
+                                {{ $testRequestItem->testRequest->patient->full_name }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm text-slate-500">
+                                Tracking Code
+                            </p>
+
+                            <p class="mt-1 font-medium text-slate-200">
+                                {{ $testRequestItem->testRequest->tracking_code }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm text-slate-500">
+                                Test
+                            </p>
+
+                            <p class="mt-1 font-medium text-slate-200">
+                                {{ $testRequestItem->test_name }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm text-slate-500">
+                                Test Status
+                            </p>
+
+                            <p class="mt-1 font-medium text-green-400">
+                                {{ $testRequestItem->status }}
+                            </p>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+
+            {{-- Upload Form --}}
+            <div class="bg-slate-900 border border-slate-800 shadow-sm sm:rounded-xl">
+
+                <div class="p-6">
+
+                    <h3 class="text-lg font-semibold text-white">
+                        Laboratory Result
+                    </h3>
+
+                    <p class="text-sm text-slate-400 mt-1 mb-6">
+                        Upload the completed laboratory result as a PDF.
+                    </p>
+
+
+                    {{-- Validation Errors --}}
+                    @if ($errors->any())
+
+                        <div class="mb-6 rounded-lg bg-red-950/40 border border-red-800 p-4">
+
+                            <p class="text-sm font-semibold text-red-400 mb-2">
+                                Please correct the following errors:
+                            </p>
+
+                            <ul class="text-sm text-red-300 space-y-1">
+
+                                @foreach ($errors->all() as $error)
+                                    <li>• {{ $error }}</li>
+                                @endforeach
+
+                            </ul>
+
+                        </div>
+
+                    @endif
+
+
+                    <form
+                        method="POST"
+                        action="{{ route('results.store', $testRequestItem) }}"
+                        enctype="multipart/form-data"
+                    >
+
+                        @csrf
+
+
+                        {{-- PDF --}}
+                        <div>
+
+                            <label
+                                for="pdf"
+                                class="block text-sm font-medium text-slate-300"
+                            >
+                                Result PDF
+                            </label>
+
+                            <input
+                                id="pdf"
+                                name="pdf"
+                                type="file"
+                                accept="application/pdf"
+                                required
+                                class="mt-2 block w-full text-sm text-slate-300
+                                       border border-slate-700 rounded-lg
+                                       cursor-pointer bg-slate-800
+                                       focus:outline-none
+                                       focus:border-indigo-500
+                                       file:mr-4
+                                       file:py-2
+                                       file:px-4
+                                       file:rounded-l-lg
+                                       file:border-0
+                                       file:text-sm
+                                       file:font-semibold
+                                       file:bg-slate-700
+                                       file:text-slate-200
+                                       hover:file:bg-slate-600"
+                            >
+
+                            <p class="mt-2 text-xs text-slate-500">
+                                PDF files only. Maximum size: 10 MB.
+                            </p>
+
+                        </div>
+
+
+                        {{-- Remarks --}}
+                        <div class="mt-6">
+
+                            <label
+                                for="remarks"
+                                class="block text-sm font-medium text-slate-300"
+                            >
+                                Remarks
+                            </label>
+
+                            <textarea
+                                id="remarks"
+                                name="remarks"
+                                rows="4"
+                                class="mt-2 block w-full rounded-lg
+                                       bg-slate-800
+                                       border-slate-700
+                                       text-slate-200
+                                       placeholder-slate-500
+                                       shadow-sm
+                                       focus:border-indigo-500
+                                       focus:ring-indigo-500"
+                                placeholder="Optional remarks about this result..."
+                            >{{ old('remarks') }}</textarea>
+
+                        </div>
+
+
+                        {{-- Actions --}}
+                        <div class="mt-6 flex items-center justify-end gap-3">
+
+                            <a
+                                href="{{ route('test-requests.show', $testRequestItem->testRequest) }}"
+                                class="px-4 py-2 text-sm font-medium
+                                       text-slate-300
+                                       bg-slate-800
+                                       border border-slate-700
+                                       rounded-lg
+                                       hover:bg-slate-700
+                                       hover:text-white
+                                       transition"
+                            >
+                                Cancel
+                            </a>
+
+                            <button
+                                type="submit"
+                                class="px-4 py-2 text-sm font-medium
+                                       text-white
+                                       bg-indigo-600
+                                       rounded-lg
+                                       hover:bg-indigo-700
+                                       transition"
+                            >
+                                Upload Result
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+</x-app-layout>
+
+
+// action/uploadResult.php
+
+<?php
+
+namespace App\Actions\Results;
+
+use App\Models\Result;
+use App\Models\TestRequest;
+use App\Models\TestRequestItem;
+use App\Services\ResultStatusService;
+use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use RuntimeException;
+
+class UploadResult
+{
+    public function __construct(
+        protected ResultStatusService $statusService
+    ) {
+    }
+
+    /**
+     * Upload a laboratory result PDF.
+     */
+    public function execute(
+        TestRequestItem $item,
+        UploadedFile $pdf,
+        ?string $remarks = null
+    ): Result {
+        $user = Auth::user();
+
+        // Load required relationships
+        $item->loadMissing([
+            'testRequest',
+            'testType',
+            'result',
         ]);
 
         /*
         |--------------------------------------------------------------------------
-        | Create Administrator
+        | Business Rules
         |--------------------------------------------------------------------------
         */
 
-        $user = User::create([
-            'laboratory_id' => $laboratory->id,
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-            'role' => UserRole::ADMIN,
-            'is_active' => true,
-        ]);
+        // Same laboratory
+        if (
+            $item->testRequest->laboratory_id !== $user->laboratory_id
+        ) {
+            throw new RuntimeException(
+                'You are not authorized to upload results for this laboratory.'
+            );
+        }
 
-        return $user;
-    });
+        // Sample must be collected
+        if (! $item->isSampleCollected()) {
+            throw new RuntimeException(
+                'The sample has not yet been collected.'
+            );
+        }
 
-    event(new Registered($user));
+        // Test must be completed
+        if (! $item->isCompleted()) {
+            throw new RuntimeException(
+                'The laboratory test has not been completed.'
+            );
+        }
 
-    Auth::login($user);
+        // Only one result allowed
+        if ($item->result()->exists()) {
+            throw new RuntimeException(
+                'A result has already been uploaded for this test.'
+            );
+        }
 
-    return redirect(route('dashboard', absolute: false));
+        return DB::transaction(function () use (
+            $item,
+            $pdf,
+            $remarks,
+            $user
+        ) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Generate filename
+            |--------------------------------------------------------------------------
+            */
+
+            $directory = 'results/'
+                . now()->format('Y')
+                . '/'
+                . now()->format('m');
+
+            $filename =
+                $item->testRequest->tracking_code
+                . '-'
+                . Str::slug($item->test_name)
+                . '-'
+                . now()->format('His')
+                . '.pdf';
+
+            /*
+            |--------------------------------------------------------------------------
+            | Store PDF
+            |--------------------------------------------------------------------------
+            */
+
+            // $path = Storage::disk('private')->putFileAs(
+            //     $directory,
+            //     $pdf,
+            //     $filename
+            // );
+
+
+
+$stream = fopen($pdf->getPathname(), 'rb');
+
+if ($stream === false) {
+    throw new RuntimeException('Unable to read the uploaded result file.');
 }
+
+// $path = Storage::disk('private')->put(
+//     $directory . '/' . $filename,
+//     $stream
+// );
+
+$path = $directory . '/' . $filename;
+
+$stored = Storage::disk('private')->put(
+    $path,
+    $stream
+);
+
+if (! $stored) {
+    throw new RuntimeException(
+        'Unable to store the uploaded result file.'
+    );
 }
 
-// laboratory controller
+fclose($stream);
+
+if ($path === false) {
+    throw new RuntimeException('Unable to store the uploaded result file.');
+}
+            /*
+            |--------------------------------------------------------------------------
+            | Create Result
+            |--------------------------------------------------------------------------
+            */
+
+            $result = Result::create([
+                'test_request_item_id' => $item->id,
+                'uploaded_by' => $user->id,
+                'verified_by' => null,
+                'pdf_path' => $path,
+                'remarks' => $remarks,
+                'uploaded_at' => Carbon::now(),
+                'verified_at' => null,
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Update Workflow
+            |--------------------------------------------------------------------------
+            */
+
+            $this->statusService->markReady($item);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Audit
+            |--------------------------------------------------------------------------
+            */
+
+            $item->testRequest->update([
+                'updated_by' => $user->id,
+            ]);
+
+            return $result;
+        });
+    }
+}
+
+// result controller
 
 <?php
 
 namespace App\Http\Controllers;
 
+use App\Actions\Results\DownloadResult;
+use App\Actions\Results\ReplaceResult;
+use App\Actions\Results\UploadResult;
+use App\Actions\Results\VerifyResult;
+use App\Models\Result;
+use App\Models\TestRequestItem;
 use Illuminate\Http\Request;
-use App\Models\Laboratory;
-use Illuminate\Support\Facades\Storage;
-class LaboratoryController extends Controller
+
+class ResultController extends Controller
 {
-    
-   /**
- * Display a listing of laboratories.
+
+/**
+ * Display a listing of laboratory results.
  */
 public function index(Request $request)
 {
+    $laboratoryId = auth()->user()->laboratory_id;
 
-$this->authorize('viewAny', Laboratory::class);
-    $search = $request->input('search');
+    $results = Result::query()
+        ->with([
+            'testRequestItem.testRequest.patient',
+            'testRequestItem.testType',
+            'uploadedBy',
+            'verifiedBy',
+        ])
+        ->whereHas('testRequestItem.testRequest', function ($query) use ($laboratoryId) {
+            $query->where('laboratory_id', $laboratoryId);
 
-    $laboratories = Laboratory::query()
-
-    ->when(! auth()->user()->isSuperAdmin(), function ($query) {
-        $query->where('id', auth()->user()->laboratory_id);
-    })
-
-        ->when(! auth()->user()->isSuperAdmin(), function ($query) {
-            $query->where('id', auth()->user()->laboratory_id);
+            // Staff can only see results from their own branch.
+            if (auth()->user()->isStaff()) {
+                $query->where(
+                    'branch_id',
+                    auth()->user()->branch_id
+                );
+            }
         })
-
-        ->when($search, function ($query) use ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('subdomain', 'like', "%{$search}%");
+        ->when($request->search, function ($query, $search) {
+            $query->where(function ($query) use ($search) {
+                $query
+                    ->whereHas('testRequestItem', function ($query) use ($search) {
+                        $query->where('test_name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('testRequestItem.testRequest', function ($query) use ($search) {
+                        $query->where('tracking_code', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('testRequestItem.testRequest.patient', function ($query) use ($search) {
+                        $query->where('first_name', 'like', "%{$search}%")
+                              ->orWhere('last_name', 'like', "%{$search}%")
+                              ->orWhere('other_names', 'like', "%{$search}%")
+                              ->orWhere('patient_number', 'like', "%{$search}%");
+                    });
             });
         })
-
-        ->latest()
-        ->paginate(10)
+        ->when($request->status === 'verified', function ($query) {
+            $query->whereNotNull('verified_at');
+        })
+        ->when($request->status === 'pending', function ($query) {
+            $query->whereNull('verified_at');
+        })
+        ->latest('uploaded_at')
+        ->paginate(15)
         ->withQueryString();
 
-    return view('laboratories.index', compact('laboratories', 'search'));
+    return view('results.index', compact('results'));
 }
-    
     /**
- * Show the form for creating a new laboratory.
- */
-public function create()
-{
-    return view('laboratories.create');
-}
-
-    
-   /**
- * Store a newly created laboratory in storage.
- */
-public function store(Request $request)
-{
-    $validated = $request->validate([
-        'name'              => ['required', 'string', 'max:255'],
-        'subdomain'         => ['required', 'alpha_dash', 'max:255', 'unique:laboratories,subdomain'],
-        'logo'              => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-        'phone'             => ['nullable', 'string', 'max:50'],
-        'email'             => ['nullable', 'email', 'max:255'],
-        'address'           => ['nullable', 'string'],
-        'country'           => ['nullable', 'string', 'max:100'],
-        'currency_code'     => ['required', 'string', 'max:10'],
-        'currency_symbol'   => ['required', 'string', 'max:10'],
-        'timezone'          => ['nullable', 'string', 'max:100'],
-        'is_active'         => ['nullable', 'boolean'],
-    ]);
-
-    // Always store the subdomain in lowercase
-    $validated['subdomain'] = strtolower($validated['subdomain']);
-
-    // Handle logo upload
-    if ($request->hasFile('logo')) {
-        $validated['logo'] = $request->file('logo')->store('laboratories', 'public');
-    }
-
-    // Checkbox handling
-    $validated['is_active'] = $request->boolean('is_active');
-
-    Laboratory::create($validated);
-
-    return redirect()
-        ->route('laboratories.index')
-        ->with('success', 'Laboratory created successfully.');
-}
-
-    
-   /**
-    * Display the specified laboratory.
-   */
-public function show(Laboratory $laboratory)
-{
-    $this->authorize('view', $laboratory);
-    return view('laboratories.show', compact('laboratory'));
-}
-
-    
-   /**
- * Show the form for editing the specified laboratory.
- */
-public function edit(Laboratory $laboratory)
-{
-    $this->authorize('update', $laboratory);
-    return view('laboratories.edit', compact('laboratory'));
-}
-
-   
-    /**
- * Update the specified laboratory in storage.
- */
-public function update(Request $request, Laboratory $laboratory)
-{
-    $this->authorize('update', $laboratory);
-    $validated = $request->validate([
-        'name'              => ['required', 'string', 'max:255'],
-        'subdomain'         => [
-            'required',
-            'alpha_dash',
-            'max:255',
-            'unique:laboratories,subdomain,' . $laboratory->id,
-        ],
-        'logo'              => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-        'phone'             => ['nullable', 'string', 'max:50'],
-        'email'             => ['nullable', 'email', 'max:255'],
-        'address'           => ['nullable', 'string'],
-        'country'           => ['nullable', 'string', 'max:100'],
-        'currency_code'     => ['required', 'string', 'max:10'],
-        'currency_symbol'   => ['required', 'string', 'max:10'],
-        'timezone'          => ['nullable', 'string', 'max:100'],
-        'is_active'         => ['nullable', 'boolean'],
-    ]);
-
-    // Always store the subdomain in lowercase.
-    $validated['subdomain'] = strtolower($validated['subdomain']);
-
-    // Upload a new logo if one was provided.
-  if ($request->hasFile('logo')) {
-    $file = $request->file('logo');
-
-    $filename = $file->hashName();
-
-    Storage::disk('public')->put(
-        'laboratories/' . $filename,
-        file_get_contents($file->getPathname())
-    );
-
-    $validated['logo'] = 'laboratories/' . $filename;
-}
-    // Handle checkbox value.
-    $validated['is_active'] = $request->boolean('is_active');
-
-    $laboratory->update($validated);
-
-    return redirect()
-        ->route('laboratories.index')
-        ->with('success', 'Laboratory updated successfully.');
-}
-
-   
-   /**
- * Remove the specified laboratory from storage.
- */
-public function destroy(Laboratory $laboratory)
-{
-    $this->authorize('delete', $laboratory);
-    $laboratory->delete();
-
-    return redirect()
-        ->route('laboratories.index')
-        ->with('success', 'Laboratory deleted successfully.');
-}
-}
-
-//chart of account seeder
-
-<?php
-
-namespace Database\Seeders;
-
-use App\Models\ChartOfAccount;
-use App\Models\Laboratory;
-use Illuminate\Database\Seeder;
-
-class ChartOfAccountsSeeder extends Seeder
-{
-    /**
-     * Run the database seeds.
+     * Show the result upload form.
      */
-    public function run(): void
+    public function create(TestRequestItem $testRequestItem)
     {
-        $laboratories = Laboratory::all();
+        abort_if(
+            $testRequestItem->testRequest->laboratory_id
+                !== auth()->user()->laboratory_id,
+            403
+        );
 
-        foreach ($laboratories as $laboratory) {
+        $testRequestItem->load([
+            'testRequest.patient',
+            'testType',
+            'result',
+        ]);
 
-            // Assets
-            $assets = ChartOfAccount::firstOrCreate(
-                [
-                    'laboratory_id' => $laboratory->id,
-                    'code' => '1000',
-                ],
-                [
-                    'name' => 'Assets',
-                    'type' => 'asset',
-                    'is_system' => true,
-                    'is_active' => true,
-                    'sort_order' => 100,
-                ]
-            );
-
-            $this->createAccount($laboratory->id, $assets->id, '1100', 'Cash', 'asset', 110);
-            $this->createAccount($laboratory->id, $assets->id, '1150', 'Petty Cash', 'asset', 115);
-            $this->createAccount($laboratory->id, $assets->id, '1200', 'Bank', 'asset', 120);
-            $this->createAccount($laboratory->id, $assets->id, '1300', 'Accounts Receivable', 'asset', 130);
-            $this->createAccount($laboratory->id, $assets->id, '1400', 'Inventory', 'asset', 140);
-            $this->createAccount($laboratory->id, $assets->id, '1500', 'Fixed Assets', 'asset', 150);
-            $this->createAccount($laboratory->id, $assets->id, '1550', 'Accumulated Depreciation', 'asset', 155);
-
-            // Liabilities
-            $liabilities = ChartOfAccount::firstOrCreate(
-                [
-                    'laboratory_id' => $laboratory->id,
-                    'code' => '2000',
-                ],
-                [
-                    'name' => 'Liabilities',
-                    'type' => 'liability',
-                    'is_system' => true,
-                    'is_active' => true,
-                    'sort_order' => 200,
-                ]
-            );
-
-            $this->createAccount($laboratory->id, $liabilities->id, '2100', 'Accounts Payable', 'liability', 210);
-            $this->createAccount($laboratory->id, $liabilities->id, '2200', 'Loans Payable', 'liability', 220);
-
-            // Equity
-            $equity = ChartOfAccount::firstOrCreate(
-                [
-                    'laboratory_id' => $laboratory->id,
-                    'code' => '3000',
-                ],
-                [
-                    'name' => 'Equity',
-                    'type' => 'equity',
-                    'is_system' => true,
-                    'is_active' => true,
-                    'sort_order' => 300,
-                ]
-            );
-
-            $this->createAccount($laboratory->id, $equity->id, '3100', "Owner's / Company Equity", 'equity', 310);
-
-            // Income
-            $income = ChartOfAccount::firstOrCreate(
-                [
-                    'laboratory_id' => $laboratory->id,
-                    'code' => '4000',
-                ],
-                [
-                    'name' => 'Income',
-                    'type' => 'income',
-                    'is_system' => true,
-                    'is_active' => true,
-                    'sort_order' => 400,
-                ]
-            );
-
-            $this->createAccount($laboratory->id, $income->id, '4100', 'Laboratory Services', 'income', 410);
-            $this->createAccount($laboratory->id, $income->id, '4200', 'Other Income', 'income', 420);
-
-            // Expenses
-            $expenses = ChartOfAccount::firstOrCreate(
-                [
-                    'laboratory_id' => $laboratory->id,
-                    'code' => '5000',
-                ],
-                [
-                    'name' => 'Expenses',
-                    'type' => 'expense',
-                    'is_system' => true,
-                    'is_active' => true,
-                    'sort_order' => 500,
-                ]
-            );
-
-            $this->createAccount($laboratory->id, $expenses->id, '5100', 'Salaries', 'expense', 510);
-            $this->createAccount($laboratory->id, $expenses->id, '5200', 'Reagents & Laboratory Supplies', 'expense', 520);
-            $this->createAccount($laboratory->id, $expenses->id, '5300', 'Transport & Logistics', 'expense', 530);
-            $this->createAccount($laboratory->id, $expenses->id, '5400', 'Utilities', 'expense', 540);
-            $this->createAccount($laboratory->id, $expenses->id, '5500', 'Repairs & Maintenance', 'expense', 550);
-            $this->createAccount($laboratory->id, $expenses->id, '5600', 'Stationery', 'expense', 560);
-            $this->createAccount($laboratory->id, $expenses->id, '5700', 'Other Expenses', 'expense', 570);
-            $this->createAccount($laboratory->id, $expenses->id, '5800', 'Depreciation Expense', 'expense', 580);
-        }
-    }
-
-    private function createAccount(
-        int $laboratoryId,
-        int $parentId,
-        string $code,
-        string $name,
-        string $type,
-        int $sortOrder
-    ): ChartOfAccount {
-        return ChartOfAccount::firstOrCreate(
-            [
-                'laboratory_id' => $laboratoryId,
-                'code' => $code,
-            ],
-            [
-                'parent_id' => $parentId,
-                'name' => $name,
-                'type' => $type,
-                'is_system' => true,
-                'is_active' => true,
-                'sort_order' => $sortOrder,
-            ]
+        return view(
+            'results.create',
+            compact('testRequestItem')
         );
     }
+
+    /**
+     * Upload a laboratory result.
+     */
+  
+public function store(
+    Request $request,
+    TestRequestItem $testRequestItem,
+    UploadResult $uploadResult,
+    \App\Actions\Results\UploadMedicalResultFiles $uploadMedicalResultFiles
+) {
+    abort_if(
+        $testRequestItem->testRequest->laboratory_id
+            !== auth()->user()->laboratory_id,
+        403
+    );
+
+    $validated = $request->validate([
+        'pdf' => [
+            'required',
+            'file',
+            'mimes:pdf',
+            'max:10240',
+        ],
+        'remarks' => [
+            'nullable',
+            'string',
+            'max:2000',
+        ],
+        'medical_files' => [
+            'nullable',
+            'array',
+            'max:10',
+        ],
+        'medical_files.*' => [
+            'file',
+            'mimes:jpg,jpeg,png,pdf',
+            'max:10240',
+        ],
+        'file_type' => [
+            'required_with:medical_files',
+            'nullable',
+            'in:X-ray,EEG,Ultrasound,Other',
+        ],
+        'description' => [
+            'nullable',
+            'string',
+            'max:1000',
+        ],
+    ]);
+
+    // Upload the required PDF using the existing workflow.
+    $result = $uploadResult->execute(
+        $testRequestItem,
+        $validated['pdf'],
+        $validated['remarks'] ?? null
+    );
+
+    // Upload optional medical files after the PDF result exists.
+    if (! empty($validated['medical_files'])) {
+        $uploadMedicalResultFiles->execute(
+            $testRequestItem,
+            $validated['medical_files'],
+            $validated['file_type'],
+            $validated['description'] ?? null
+        );
+    }
+
+    return redirect()
+        ->route(
+            'test-requests.show',
+            $testRequestItem->testRequest
+        )
+        ->with(
+            'success',
+            'Result PDF and any medical files uploaded successfully.'
+        );
 }
 
-//create test request
 
-<?php
-
-namespace App\Actions;
-
-use App\Models\TestRequest;
-use App\Models\TestType;
-use App\Services\TestRequestCalculator;
-use App\Services\TrackingCodeGenerator;
-use Illuminate\Support\Facades\DB;
-use App\Models\TestRequestItem;
-use App\Models\ChartOfAccount;
-use App\Services\JournalEntryService;
-
-class CreateTestRequest
-{
-    public function __construct(
-        protected TrackingCodeGenerator $trackingCodeGenerator,
-        protected TestRequestCalculator $calculator,
-          protected JournalEntryService $journalEntryService
+    /**
+     * Download a laboratory result.
+     */
+    public function download(
+        Result $result,
+        DownloadResult $downloadResult
     ) {
+        return $downloadResult->execute($result);
     }
 
     /**
-     * Create a Test Request with its items.
+     * Verify a laboratory result.
      */
-  public function execute(array $data): TestRequest
+    public function verify(
+        Result $result,
+        VerifyResult $verifyResult
+    ) {
+        $verifyResult->execute($result);
+
+        return redirect()
+            ->back()
+            ->with(
+                'success',
+                'Result verified successfully.'
+            );
+    }
+
+    public function sendWhatsapp(Result $result)
 {
-    return DB::transaction(function () use ($data) {
+    $result->load([
+        'testRequestItem.testRequest.patient',
+        'testRequestItem.testType',
+    ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Calculate Total
-        |--------------------------------------------------------------------------
-        */
+    // Make sure the result belongs to the logged-in laboratory
+    abort_if(
+        $result->testRequestItem->testRequest->laboratory_id !== auth()->user()->laboratory_id,
+        403
+    );
 
-        $totalAmount = $this->calculator->calculate($data['items']);
+    // Only verified results can be sent to patients
+    if (!$result->verified_at) {
+        return redirect()->back()->with('error', 'This result must be verified before it can be sent via WhatsApp.');
+    }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Fetch All Test Types (Avoid N+1 Queries)
-        |--------------------------------------------------------------------------
-        */
+    $patient = $result->testRequestItem->testRequest->patient;
 
-        $testTypes = TestType::whereIn(
-            'id',
-            collect($data['items'])->pluck('test_type_id')
-        )
-        ->get()
-        ->keyBy('id');
+    // Patient must have a phone number
+    if (!$patient->phone) {
+        return redirect()->back()->with('error', 'This patient does not have a phone number.');
+    }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Create Test Request
-        |--------------------------------------------------------------------------
-        */
+    // Convert Nigerian phone number to international format
+    $phone = preg_replace('/\D/', '', $patient->phone);
 
-        $testRequest = TestRequest::create([
-            'laboratory_id' => auth()->user()->laboratory_id,
-             'branch_id' => auth()->user()->branch_id,
-            'patient_id' => $data['patient_id'],
-            'tracking_code' => $this->trackingCodeGenerator->generate(),
-            'total_amount' => $totalAmount,
-            'remarks' => $data['remarks'] ?? null,
-            'overall_status' => TestRequest::STATUS_PENDING,
-            'requested_by' => auth()->id(),
-        ]);
+    if (str_starts_with($phone, '0')) {
+        $phone = '234' . substr($phone, 1);
+    }
 
-        $receivableAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
-    ->where('code', '1300')
-    ->firstOrFail();
+    // Generate the patient's secure result-view link
+    $resultUrl = route('patient.result.view', [
+        'trackingCode' => $result->testRequestItem->testRequest->tracking_code,
+        'result' => $result->id,
+    ]);
 
-$incomeAccount = ChartOfAccount::where('laboratory_id', $testRequest->laboratory_id)
-    ->where('code', '4100')
-    ->firstOrFail();
+    $laboratory = auth()->user()->laboratory;
 
-$this->journalEntryService->create([
-    'laboratory_id' => $testRequest->laboratory_id,
-    'branch_id' => $testRequest->branch_id,
-    'entry_date' => $testRequest->created_at->toDateString(),
-    'reference' => 'TR-' . $testRequest->id,
-    'description' => 'Laboratory service billed',
-    'source_type' => TestRequest::class,
-    'source_id' => $testRequest->id,
-    'created_by' => auth()->id(),
-    'status' => 'posted',
-    'posted_at' => now(),
-], [
-    [
-        'account_id' => $receivableAccount->id,
-        'debit' => $totalAmount,
-        'credit' => 0,
-        'description' => 'Amount receivable from patient',
-    ],
-    [
-        'account_id' => $incomeAccount->id,
-        'debit' => 0,
-        'credit' => $totalAmount,
-        'description' => 'Laboratory service income',
-    ],
-]);
+    $message = "🧪 {$laboratory->name}\n\n"
+        . "Hello {$patient->full_name}, your laboratory result is now ready.\n\n"
+        . "You can securely view your result here:\n"
+        . "{$resultUrl}\n\n"
+        . "Thank you for choosing {$laboratory->name}.";
 
-        /*
-        |--------------------------------------------------------------------------
-        | Create Test Request Items
-        |--------------------------------------------------------------------------
-        */
-
-        foreach ($data['items'] as $item) {
-
-            $testType = $testTypes->get($item['test_type_id']);
-
-            $testRequest->items()->create([
-                'test_type_id' => $testType->id,
-                'test_name'    => $testType->name,
-                'price'        => $item['price'],
-
-                'status'         => TestRequestItem::STATUS_PENDING,
-                'sample_status'  => TestRequestItem::SAMPLE_PENDING,
-                'result_status'  => TestRequestItem::RESULT_NOT_READY,
-            ]);
-        }
-
-        return $testRequest->load([
-            'patient',
-            'items.testType',
-            'requestedBy',
-        ]);
-    });
-}
+    return redirect(
+        'https://wa.me/' . $phone . '?text=' . urlencode($message)
+    );
 }
 
+    /**
+     * Show the result replacement form.
+     */
+    public function edit(Result $result)
+    {
+        abort_if(
+            $result->testRequestItem->testRequest->laboratory_id
+                !== auth()->user()->laboratory_id,
+            403
+        );
+
+        $result->load([
+            'testRequestItem.testRequest.patient',
+            'testRequestItem.testType',
+        ]);
+
+        return view(
+            'results.edit',
+            compact('result')
+        );
+    }
+
+    /**
+     * Replace an existing laboratory result.
+     */
+    public function update(
+        Request $request,
+        Result $result,
+        ReplaceResult $replaceResult
+    ) {
+        abort_if(
+            $result->testRequestItem->testRequest->laboratory_id
+                !== auth()->user()->laboratory_id,
+            403
+        );
+
+        $validated = $request->validate([
+            'pdf' => [
+                'required',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
+            'remarks' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+        ]);
+
+        $replaceResult->execute(
+            $result,
+            $validated['pdf'],
+            $validated['remarks'] ?? null
+        );
+
+        return redirect()
+            ->route(
+                'test-requests.show',
+                $result->testRequestItem->testRequest
+            )
+            ->with(
+                'success',
+                'Result replaced successfully. The new result must be verified again.'
+            );
+    }
+}

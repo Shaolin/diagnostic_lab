@@ -520,6 +520,25 @@
 
         @endif
 
+        
+        {{-- Pay by Insurance --}}
+        @if($testRequest->insuranceClaim)
+            <a
+                href="{{ route('insurance-claims.show', $testRequest->insuranceClaim) }}"
+                class="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-purple-700"
+            >
+                Insurance
+            </a>
+        @else
+            <a
+                href="{{ route('insurance-claims.create', $testRequest) }}"
+                class="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-purple-700"
+            >
+                Pay by Insurance
+            </a>
+        @endif
+
+
     </div>
 
 </td>

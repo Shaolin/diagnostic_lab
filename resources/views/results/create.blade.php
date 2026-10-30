@@ -92,9 +92,14 @@
                         Laboratory Result
                     </h3>
 
-                    <p class="text-sm text-slate-400 mt-1 mb-6">
+                    {{-- <p class="text-sm text-slate-400 mt-1 mb-6">
                         Upload the completed laboratory result as a PDF.
-                    </p>
+                    </p> --}}
+
+                    <p class="text-sm text-slate-400 mt-1 mb-6">
+    Upload the required PDF report and, optionally, supporting X-ray,
+    EEG, or ultrasound images.
+</p>
 
 
                     {{-- Validation Errors --}}
@@ -166,6 +171,85 @@
                             </p>
 
                         </div>
+
+                        
+{{-- Optional Medical Images and Films --}}
+<div class="mt-6 border-t border-slate-800 pt-6">
+
+    <h4 class="text-sm font-semibold text-white">
+        Medical Images / Films (Optional)
+    </h4>
+
+    <p class="mt-1 text-xs text-slate-400">
+        Upload up to 10 supporting files. Accepted formats: JPG, JPEG,
+        PNG, and PDF. Maximum size: 10 MB per file.
+    </p>
+
+    <div class="mt-4">
+        <label for="file_type"
+               class="block text-sm font-medium text-slate-300">
+            Image / Film Category
+        </label>
+
+        <select
+            id="file_type"
+            name="file_type"
+            class="mt-2 block w-full rounded-lg bg-slate-800
+                   border-slate-700 text-slate-200
+                   focus:border-indigo-500 focus:ring-indigo-500"
+        >
+            <option value="">Select category if uploading files</option>
+            <option value="X-ray" {{ old('file_type') === 'X-ray' ? 'selected' : '' }}>X-ray</option>
+            <option value="EEG" {{ old('file_type') === 'EEG' ? 'selected' : '' }}>EEG</option>
+            <option value="Ultrasound" {{ old('file_type') === 'Ultrasound' ? 'selected' : '' }}>Ultrasound</option>
+            <option value="Other" {{ old('file_type') === 'Other' ? 'selected' : '' }}>Other</option>
+        </select>
+    </div>
+
+    <div class="mt-4">
+        <label for="medical_files"
+               class="block text-sm font-medium text-slate-300">
+            Select Images / Films
+        </label>
+
+        <input
+            id="medical_files"
+            name="medical_files[]"
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf"
+            multiple
+            class="mt-2 block w-full text-sm text-slate-300
+                   border border-slate-700 rounded-lg
+                   cursor-pointer bg-slate-800
+                   focus:outline-none focus:border-indigo-500
+                   file:mr-4 file:py-2 file:px-4
+                   file:rounded-l-lg file:border-0
+                   file:text-sm file:font-semibold
+                   file:bg-slate-700 file:text-slate-200
+                   hover:file:bg-slate-600"
+        >
+    </div>
+
+    <div class="mt-4">
+        <label for="description"
+               class="block text-sm font-medium text-slate-300">
+            Description (Optional)
+        </label>
+
+        <textarea
+            id="description"
+            name="description"
+            rows="2"
+            class="mt-2 block w-full rounded-lg bg-slate-800
+                   border-slate-700 text-slate-200
+                   placeholder-slate-500 shadow-sm
+                   focus:border-indigo-500 focus:ring-indigo-500"
+            placeholder="e.g. Chest X-ray, front view"
+        >{{ old('description') }}</textarea>
+    </div>
+
+</div>
+
 
 
                         {{-- Remarks --}}

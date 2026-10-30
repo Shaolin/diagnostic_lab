@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 
 
@@ -114,6 +115,14 @@ public function isCompleted(): bool
 public function result(): HasOne
 {
     return $this->hasOne(Result::class);
+}
+
+/**
+ * Medical images and films attached to this test item.
+ */
+public function medicalResultFiles(): HasMany
+{
+    return $this->hasMany(MedicalResultFile::class);
 }
 
 

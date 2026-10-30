@@ -271,6 +271,20 @@
 
     <div class="flex flex-wrap justify-end gap-2">
 
+        {{-- View Result --}}
+<a
+    href="{{ route('results.show', $result) }}"
+    class="rounded-lg
+           bg-indigo-600
+           px-3 py-2
+           text-xs font-semibold
+           text-white
+           hover:bg-indigo-700
+           transition"
+>
+    View
+</a>
+
         {{-- Download --}}
         <a
             href="{{ route('results.download', $result) }}"
